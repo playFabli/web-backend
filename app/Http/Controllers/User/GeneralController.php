@@ -826,7 +826,7 @@ class GeneralController extends Controller
         if (file_put_contents(config('app.renderer_directory')."/python/$hash.py", $renderer->getScript())) {
             $output = "";
             $code = 0;
-            exec("C:\\Users\\Daniel\\Downloads\\blender-2.79b-windows64\\blender -b -P ".config('app.renderer_directory')."/python/$hash.py 2>&1", $output, $code);
+            exec("blender279 -b -P ".config('app.renderer_directory')."/python/$hash.py 2>&1", $output, $code);
             // if(!config('app.renderer_save_python_files'))
             //     unlink(config('app.renderer_main_path')."/python/$name.py");
 

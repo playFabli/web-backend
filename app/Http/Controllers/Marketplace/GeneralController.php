@@ -114,7 +114,7 @@ class GeneralController extends Controller
         if (file_put_contents(config('app.renderer_directory')."/python/$hash.py", $script)) {
             $output = [];
             $code = 0;
-            exec("C:\\Users\\Daniel\\Downloads\\blender-2.79b-windows64\\blender -b -P ".config('app.renderer_directory')."/python/$hash.py 2>&1", $output, $code);
+            exec("blender279 -b -P ".config('app.renderer_directory')."/python/$hash.py 2>&1", $output, $code);
 
             return response()->json([
                 "data" => [
