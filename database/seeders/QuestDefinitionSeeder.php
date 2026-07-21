@@ -10,15 +10,15 @@ class QuestDefinitionSeeder extends Seeder
     public function run(): void
     {
         // Daily quests
-        QuestDefinition::create([
-            'name' => 'Play Minigames',
-            'description' => 'Play minigames to earn rewards.',
-            'type' => 'daily',
-            'min_value' => 3,
-            'max_value' => 8,
-            'coin_reward' => 25,
-            'exp_reward' => 15,
-        ]);
+        // QuestDefinition::create([
+        //     'name' => 'Play Minigames',
+        //     'description' => 'Play minigames to earn rewards.',
+        //     'type' => 'daily',
+        //     'min_value' => 3,
+        //     'max_value' => 8,
+        //     'coin_reward' => 25,
+        //     'exp_reward' => 15,
+        // ]);
 
         QuestDefinition::create([
             'name' => 'Post on Forums',
@@ -31,8 +31,8 @@ class QuestDefinitionSeeder extends Seeder
         ]);
 
         QuestDefinition::create([
-            'name' => 'Open Cases',
-            'description' => 'Test your luck by opening cases.',
+            'name' => 'Open Boxes',
+            'description' => 'Test your luck by opening boxes.',
             'type' => 'daily',
             'min_value' => 1,
             'max_value' => 5,
@@ -82,8 +82,8 @@ class QuestDefinitionSeeder extends Seeder
         ]);
 
         QuestDefinition::create([
-            'name' => 'Open Many Cases',
-            'description' => 'Open a large number of cases this week.',
+            'name' => 'Open Many Boxes',
+            'description' => 'Open a large number of boxes this week.',
             'type' => 'weekly',
             'min_value' => 30,
             'max_value' => 75,
@@ -112,15 +112,15 @@ class QuestDefinitionSeeder extends Seeder
         ]);
 
         // Challenge quests (same as daily but 2-3x values)
-        QuestDefinition::create([
-            'name' => 'Minigame Master',
-            'description' => 'Play a massive number of minigames.',
-            'type' => 'challenge',
-            'min_value' => 20,
-            'max_value' => 60,
-            'coin_reward' => 500,
-            'exp_reward' => 300,
-        ]);
+        // QuestDefinition::create([
+        //     'name' => 'Minigame Master',
+        //     'description' => 'Play a massive number of minigames.',
+        //     'type' => 'challenge',
+        //     'min_value' => 20,
+        //     'max_value' => 60,
+        //     'coin_reward' => 500,
+        //     'exp_reward' => 300,
+        // ]);
 
         QuestDefinition::create([
             'name' => 'Marketplace Tycoon',
@@ -133,8 +133,8 @@ class QuestDefinitionSeeder extends Seeder
         ]);
 
         QuestDefinition::create([
-            'name' => 'Case Opener',
-            'description' => 'Open an extreme number of cases.',
+            'name' => 'Box Opener',
+            'description' => 'Open an extreme number of boxes.',
             'type' => 'challenge',
             'min_value' => 10,
             'max_value' => 25,
