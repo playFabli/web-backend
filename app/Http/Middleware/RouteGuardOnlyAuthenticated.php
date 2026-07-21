@@ -21,7 +21,7 @@ class RouteGuardOnlyAuthenticated
 
         $token = str_replace("Bearer ", "", $request->header('Authorization'));
         $userToken = \App\Models\UserToken::where('token', $token)->first();
-        if (!$userToken || $userToken->expires_at < now()) {
+        if (!$userToken) {
             return response()->json(['status' => 'error', 'message' => 'Invalid or expired token.'], 401);
         }
 
