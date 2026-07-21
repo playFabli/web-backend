@@ -123,7 +123,8 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
-    'renderer_directory' => 'C:/Users/Daniel/Downloads/fabli/rendering',
-    'storage_directory' => 'C:/Users/Daniel/Downloads/fabli/backend/public/storage'
+    'renderer_directory' => '/var/www/rendering',
+    'storage_directory' => '/var/www/backend/public/storage',
+    'blender_path' => 'blender279'
 
 ];
