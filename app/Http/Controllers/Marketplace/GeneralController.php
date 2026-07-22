@@ -140,6 +140,9 @@ class GeneralController extends Controller
             if ($moved) {
                 $data['texture_path'] = 'textures/'.$filename.'.png';
             }
+
+            $item->moderation_status = "pending";
+            $item->save();
         }
 
         $item->update($data);
