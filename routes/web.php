@@ -17,6 +17,10 @@ Route::post("/payments/webhook", function() {
         if(!$contract) {
             return response()->json(["Contract not found"], 404);
         } else {
+            if($contract->is_finished) {
+                return response()->json(["Contract finished"], 200);                
+            }
+
             $availableProducts = ["5" => 500, "9.99" => 1000, "19.99" => 2500, "39.99" => 5000];
             $amountBought = $availableProducts[$data["amount"]];
 
@@ -24,7 +28,8 @@ Route::post("/payments/webhook", function() {
             $user->coins = $user->coins + $amountBought;
             $user->save();
 
-            $contract->delete();
+            $contract->is_finished = true;
+            $contract->save();
 
             return response()->json(["All good"], 200);
         }
