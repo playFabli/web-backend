@@ -11,10 +11,10 @@ class RoadmapItem extends Model
         'description',
         'status',
         'phase',
-        'sort_order'
+        'sort_order',
     ];
 
     protected $casts = [
-        'status' => 'string'
+        'status' => 'string',
     ];
 }

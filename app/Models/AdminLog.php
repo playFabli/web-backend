@@ -12,11 +12,13 @@ class AdminLog extends Model
         'log',
     ];
 
-    public function admin() {
+    public function admin()
+    {
         return $this->belongsTo(User::class, 'admin_id');
     }
 
-    public function target() {
+    public function target()
+    {
         return $this->belongsTo(User::class, 'target_id');
     }
 }

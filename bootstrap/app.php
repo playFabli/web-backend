@@ -4,6 +4,7 @@ use App\Http\Middleware\GlobalSiteMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -20,4 +21,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+
+        $exceptions->render(function (ThrottleRequestsException $e, $request) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'You\'re sending too many requests. Please try again later.'
+            ], 429);
+        }); 
     })->create();

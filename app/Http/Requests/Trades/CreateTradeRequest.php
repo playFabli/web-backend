@@ -23,10 +23,10 @@ class CreateTradeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            "offering" => ["sometimes", "array"],
-            "receiving" => ["sometimes", "array"],
-            "offering_coins" => ["required", "integer", "min:0"],
-            "receiving_coins" => ["required", "integer", "min:0"],
+            'offering' => ['sometimes', 'array'],
+            'receiving' => ['sometimes', 'array'],
+            'offering_coins' => ['required', 'integer', 'min:0'],
+            'receiving_coins' => ['required', 'integer', 'min:0'],
         ];
     }
 }

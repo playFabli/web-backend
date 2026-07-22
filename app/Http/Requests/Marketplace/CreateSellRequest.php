@@ -23,7 +23,7 @@ class CreateSellRequest extends FormRequest
     public function rules(): array
     {
         return [
-            "price"=>["min:1","required"]
+            'price' => ['min:1', 'required'],
         ];
     }
 }

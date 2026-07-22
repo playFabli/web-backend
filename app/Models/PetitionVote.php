@@ -9,7 +9,7 @@ class PetitionVote extends Model
     protected $fillable = [
         'petition_id',
         'user_id',
-        'vote'
+        'vote',
     ];
 
     public function petition()

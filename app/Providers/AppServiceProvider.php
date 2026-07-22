@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\UserToken;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,14 +20,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->app->singleton("token_user", function($app) {
-            $token = str_replace("Bearer ", "", $app->request->header('Authorization'));
-            if (!$token) {
+        $this->app->singleton('token_user', function ($app) {
+            $token = str_replace('Bearer ', '', $app->request->header('Authorization'));
+            if (! $token) {
                 return null;
             }
 
-            $userToken = \App\Models\UserToken::where('token', $token)->where("expires_at", ">", now())->first();
-            if (!$userToken) {
+            $userToken = UserToken::where('token', $token)->where('expires_at', '>', now())->first();
+            if (! $userToken) {
                 return null;
             }
 

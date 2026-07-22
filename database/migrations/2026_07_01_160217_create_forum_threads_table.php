@@ -13,14 +13,14 @@ return new class extends Migration
     {
         Schema::create('forum_threads', function (Blueprint $table) {
             $table->id();
-            $table->integer("category_id");
-            $table->string("title");
-            $table->text("content");
-            $table->integer("user_id");
-            $table->boolean("is_pinned")->default(false);
-            $table->boolean("is_locked")->default(false);
-            $table->boolean("is_deleted")->default(false);
-            $table->boolean("is_scrubbed")->default(false);
+            $table->integer('category_id');
+            $table->string('title');
+            $table->text('content');
+            $table->integer('user_id');
+            $table->boolean('is_pinned')->default(false);
+            $table->boolean('is_locked')->default(false);
+            $table->boolean('is_deleted')->default(false);
+            $table->boolean('is_scrubbed')->default(false);
             $table->timestamps();
         });
     }

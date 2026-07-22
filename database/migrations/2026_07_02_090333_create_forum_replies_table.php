@@ -13,11 +13,11 @@ return new class extends Migration
     {
         Schema::create('forum_replies', function (Blueprint $table) {
             $table->id();
-            $table->integer("thread_id");
-            $table->integer("user_id");
-            $table->string("content");
-            $table->boolean("is_deleted")->default(false);
-            $table->boolean("is_scrubbed")->default(false);
+            $table->integer('thread_id');
+            $table->integer('user_id');
+            $table->string('content');
+            $table->boolean('is_deleted')->default(false);
+            $table->boolean('is_scrubbed')->default(false);
             $table->timestamps();
         });
     }

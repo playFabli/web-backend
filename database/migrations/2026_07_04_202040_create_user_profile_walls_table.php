@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::create('user_profile_walls', function (Blueprint $table) {
             $table->id();
-            $table->integer("user_id");
-            $table->integer("author_id");
-            $table->string("content", 600);
-            $table->boolean("is_deleted")->default(false);
+            $table->integer('user_id');
+            $table->integer('author_id');
+            $table->string('content', 600);
+            $table->boolean('is_deleted')->default(false);
             $table->timestamps();
         });
     }

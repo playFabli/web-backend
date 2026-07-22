@@ -13,18 +13,18 @@ return new class extends Migration
     {
         Schema::create('marketplace_items', function (Blueprint $table) {
             $table->id();
-            $table->integer("user_id");
-            $table->integer("category_id");
-            $table->string("title");
-            $table->text("description");
-            $table->integer("price");
-            $table->integer("rap")->default(0);
-            $table->enum("rarity", ["none","uncommon","rare","ultra_rare","legendary"])->default("none");
-            $table->boolean("is_limited")->default(false);
-            $table->integer("stock_count")->default(0);
-            $table->integer("stock_left")->default(0);
-            $table->boolean("is_offsale")->default(false);
-            $table->boolean("is_deleted")->default(false);
+            $table->integer('user_id');
+            $table->integer('category_id');
+            $table->string('title');
+            $table->text('description');
+            $table->integer('price');
+            $table->integer('rap')->default(0);
+            $table->enum('rarity', ['none', 'uncommon', 'rare', 'ultra_rare', 'legendary'])->default('none');
+            $table->boolean('is_limited')->default(false);
+            $table->integer('stock_count')->default(0);
+            $table->integer('stock_left')->default(0);
+            $table->boolean('is_offsale')->default(false);
+            $table->boolean('is_deleted')->default(false);
             $table->timestamps();
         });
     }

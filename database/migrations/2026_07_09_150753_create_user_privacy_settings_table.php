@@ -13,13 +13,13 @@ return new class extends Migration
     {
         Schema::create('user_privacy_settings', function (Blueprint $table) {
             $table->id();
-            $table->integer("user_id");
-            $table->boolean("profile_visible")->default(true);
-            $table->boolean("show_last_online_time")->default(true);
-            $table->boolean("show_rap")->default(true);
-            $table->integer("who_can_post_on_wall")->default(0);
-            $table->integer("who_can_see_inventory")->default(0);
-            $table->integer("who_can_trade")->default(0);
+            $table->integer('user_id');
+            $table->boolean('profile_visible')->default(true);
+            $table->boolean('show_last_online_time')->default(true);
+            $table->boolean('show_rap')->default(true);
+            $table->integer('who_can_post_on_wall')->default(0);
+            $table->integer('who_can_see_inventory')->default(0);
+            $table->integer('who_can_trade')->default(0);
             $table->timestamps();
         });
     }

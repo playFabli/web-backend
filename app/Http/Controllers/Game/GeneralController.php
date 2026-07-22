@@ -50,7 +50,7 @@ class GeneralController extends Controller
     public function show($id)
     {
         $user = app('token_user');
-        
+
         $game = Game::where('id', $id)
             ->with('creator')
             ->with(['comments' => function ($query) {
@@ -58,9 +58,9 @@ class GeneralController extends Controller
             }, 'comments.user'])
             ->first();
 
-        if (!$game) {
+        if (! $game) {
             return response()->json([
-                'error' => 'Game not found'
+                'error' => 'Game not found',
             ], 404);
         }
 
@@ -74,7 +74,7 @@ class GeneralController extends Controller
         $game->user_vote = $userVote;
 
         return response()->json([
-            'data' => $game
+            'data' => $game,
         ]);
     }
 
@@ -82,9 +82,9 @@ class GeneralController extends Controller
     {
         $game = Game::where('id', $id)->first();
 
-        if (!$game) {
+        if (! $game) {
             return response()->json([
-                'error' => 'Game not found'
+                'error' => 'Game not found',
             ], 404);
         }
 
@@ -97,9 +97,9 @@ class GeneralController extends Controller
     {
         $game = Game::where('id', $id)->first();
 
-        if (!$game) {
+        if (! $game) {
             return response()->json([
-                'error' => 'Game not found'
+                'error' => 'Game not found',
             ], 404);
         }
 
@@ -108,7 +108,7 @@ class GeneralController extends Controller
         $comment = GameComment::create([
             'game_id' => $game->id,
             'user_id' => $user->id,
-            'content' => $request->input('content')
+            'content' => $request->input('content'),
         ]);
 
         return response()->json($comment, 201);
@@ -118,9 +118,9 @@ class GeneralController extends Controller
     {
         $game = Game::where('id', $id)->first();
 
-        if (!$game) {
+        if (! $game) {
             return response()->json([
-                'error' => 'Game not found'
+                'error' => 'Game not found',
             ], 404);
         }
 
@@ -146,7 +146,7 @@ class GeneralController extends Controller
             GameVote::create([
                 'game_id' => $game->id,
                 'user_id' => $user->id,
-                'vote' => 'like'
+                'vote' => 'like',
             ]);
             $game->likes_count = $game->likes_count + 1;
         }
@@ -157,7 +157,7 @@ class GeneralController extends Controller
             'likes_count' => $game->likes_count,
             'dislikes_count' => $game->dislikes_count,
             'like_ratio' => $game->like_ratio,
-            'user_vote' => $existingVote ? ($existingVote->vote === 'like' ? null : 'like') : 'like'
+            'user_vote' => $existingVote ? ($existingVote->vote === 'like' ? null : 'like') : 'like',
         ]);
     }
 
@@ -191,7 +191,7 @@ class GeneralController extends Controller
         }
 
         return response()->json([
-            'data' => $game
+            'data' => $game,
         ], 201);
     }
 
@@ -199,9 +199,9 @@ class GeneralController extends Controller
     {
         $game = Game::where('id', $id)->first();
 
-        if (!$game) {
+        if (! $game) {
             return response()->json([
-                'error' => 'Game not found'
+                'error' => 'Game not found',
             ], 404);
         }
 
@@ -227,7 +227,7 @@ class GeneralController extends Controller
             GameVote::create([
                 'game_id' => $game->id,
                 'user_id' => $user->id,
-                'vote' => 'dislike'
+                'vote' => 'dislike',
             ]);
             $game->dislikes_count = $game->dislikes_count + 1;
         }
@@ -238,7 +238,7 @@ class GeneralController extends Controller
             'likes_count' => $game->likes_count,
             'dislikes_count' => $game->dislikes_count,
             'like_ratio' => $game->like_ratio,
-            'user_vote' => $existingVote ? ($existingVote->vote === 'dislike' ? null : 'dislike') : 'dislike'
+            'user_vote' => $existingVote ? ($existingVote->vote === 'dislike' ? null : 'dislike') : 'dislike',
         ]);
     }
 }

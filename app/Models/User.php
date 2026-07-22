@@ -2,109 +2,124 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
-use Carbon\Carbon;
 
-#[Fillable(['username', 'email', 'password', 'coins'])]
+#[Fillable(['username', 'email', 'password', 'coins', 'is_email_verified'])]
 #[Hidden(['password', 'email', 'last_currency_at'])]
 class User extends Model
 {
-	protected $appends = ["is_online", "final_rap", "leaderboard_rank", "leaderboard_percentile", "item_count"];
+    protected $appends = ['is_online', 'final_rap', 'leaderboard_rank', 'leaderboard_percentile', 'item_count'];
 
-	public function getIsOnlineAttribute() {
-		if (!$this->last_seen_at) return false;
-		
-		$last = Carbon::parse($this->last_seen_at);
-		return $last->greaterThanOrEqualTo(Carbon::now()->subSeconds(10));
-	}
+    public function getIsOnlineAttribute()
+    {
+        if (! $this->last_seen_at) {
+            return false;
+        }
 
-	public function getFinalRapAttribute() {
-		$itemsOwned = MarketplaceItemInventory::where('user_id', $this->id)->get();
-		$rap = 0;
+        $last = Carbon::parse($this->last_seen_at);
 
-		foreach($itemsOwned as $inv) {
-			if(!$inv->item->is_limited)
-				continue;
-			else {
-				$rap = $rap + $inv->item->final_rap;
-			}
-		}
+        return $last->greaterThanOrEqualTo(Carbon::now()->subSeconds(10));
+    }
 
-		return $rap;
-	}
+    public function getFinalRapAttribute()
+    {
+        $itemsOwned = MarketplaceItemInventory::where('user_id', $this->id)->get();
+        $rap = 0;
 
+        foreach ($itemsOwned as $inv) {
+            if (! $inv->item->is_limited) {
+                continue;
+            } else {
+                $rap = $rap + $inv->item->final_rap;
+            }
+        }
 
-	public function getLeaderboardPercentileAttribute(): ?float
-	{
-		$finalRap = $this->final_rap;
-		
-		$allUsers = self::all();
-		$totalUsers = $allUsers->count();
+        return $rap;
+    }
 
-		if ($totalUsers <= 1) {
-			return $totalUsers === 1 ? 0.00 : null;
-		}
+    public function getLeaderboardPercentileAttribute(): ?float
+    {
+        $finalRap = $this->final_rap;
 
-		$usersWithHigherRap = $allUsers->filter(function ($user) use ($finalRap) {
-			return $user->final_rap > $finalRap;
-		})->count();
+        $allUsers = self::all();
+        $totalUsers = $allUsers->count();
 
-		return round(($usersWithHigherRap / $totalUsers) * 100) + 1;
-	}
+        if ($totalUsers <= 1) {
+            return $totalUsers === 1 ? 0.00 : null;
+        }
 
-	public function getLeaderboardRankAttribute() {
-		$users = self::all()->sortByDesc(function ($user) {
-			return $user->final_rap;
-		})->values();
+        $usersWithHigherRap = $allUsers->filter(function ($user) use ($finalRap) {
+            return $user->final_rap > $finalRap;
+        })->count();
 
-		$rank = $users->search(function ($user) {
-			return $user->id === $this->id;
-		});
+        return round(($usersWithHigherRap / $totalUsers) * 100) + 1;
+    }
 
-		return $rank === false ? null : $rank + 1;
-	}
-	
-	public function getItemCountAttribute() {
-		return MarketplaceItemInventory::where('user_id', $this->id)->count();
-	}
+    public function getLeaderboardRankAttribute()
+    {
+        $users = self::all()->sortByDesc(function ($user) {
+            return $user->final_rap;
+        })->values();
 
-	public function expNeeded() {
-		$expNeeded = floor(10 * $this->level * log($this->level + 1) * 1.25);
-		return $expNeeded;		
-	}
-	public function giveExp(int $amount) {
-		$expNeeded = $this->expNeeded();
+        $rank = $users->search(function ($user) {
+            return $user->id === $this->id;
+        });
 
-		if($this->exp + $amount >= $expNeeded) {
-			$this->level = $this->level + 1;
-			$this->exp = 0;
+        return $rank === false ? null : $rank + 1;
+    }
 
-			$this->save();
-		} else {
-			$this->exp = $this->exp + $amount;
-			$this->save();
-		}
-	}
+    public function getItemCountAttribute()
+    {
+        return MarketplaceItemInventory::where('user_id', $this->id)->count();
+    }
 
-	public function privacy() {
-		return $this->hasOne(UserPrivacySetting::class);
-	}
+    public function expNeeded()
+    {
+        $expNeeded = floor(10 * $this->level * log($this->level + 1) * 1.25);
 
-	public function bans() {
-		return $this->hasMany(UserBan::class, 'user_id');
-	}
+        return $expNeeded;
+    }
 
-	public function wearing() {
-		return $this->hasMany(UserWearing::class);
-	}
+    public function giveExp(int $amount)
+    {
+        $expNeeded = $this->expNeeded();
 
-	public function avatarColors() {
-		return $this->hasOne(UserAvatarColor::class);
-	}
+        if ($this->exp + $amount >= $expNeeded) {
+            $this->level = $this->level + 1;
+            $this->exp = 0;
 
-	public function inventory() {
-		return $this->hasMany(MarketplaceItemInventory::class);
-	}
+            $this->save();
+        } else {
+            $this->exp = $this->exp + $amount;
+            $this->save();
+        }
+    }
+
+    public function privacy()
+    {
+        return $this->hasOne(UserPrivacySetting::class);
+    }
+
+    public function bans()
+    {
+        return $this->hasMany(UserBan::class, 'user_id');
+    }
+
+    public function wearing()
+    {
+        return $this->hasMany(UserWearing::class);
+    }
+
+    public function avatarColors()
+    {
+        return $this->hasOne(UserAvatarColor::class);
+    }
+
+    public function inventory()
+    {
+        return $this->hasMany(MarketplaceItemInventory::class);
+    }
 }

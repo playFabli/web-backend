@@ -13,9 +13,9 @@ return new class extends Migration
     {
         Schema::create('marketplace_case_contents', function (Blueprint $table) {
             $table->id();
-            $table->integer("case_id");
-            $table->integer("item_id");
-            $table->float("chance");
+            $table->integer('case_id');
+            $table->integer('item_id');
+            $table->float('chance');
             $table->timestamps();
         });
     }

@@ -19,11 +19,13 @@ class UserBan extends Model
         'expires_at' => 'datetime',
     ];
 
-    public function user() {
+    public function user()
+    {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function bannedBy() {
+    public function bannedBy()
+    {
         return $this->belongsTo(User::class, 'banned_by_admin_id');
     }
 }

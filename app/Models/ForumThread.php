@@ -3,39 +3,45 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable("category_id", "title", "content", "user_id")]
+#[Fillable('category_id', 'title', 'content', 'user_id')]
 class ForumThread extends Model
 {
     protected $appends = ['reply_count', 'last_post', 'view_count'];
 
-    public function user() {
+    public function user()
+    {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function category() {
+    public function category()
+    {
         return $this->belongsTo(ForumCategory::class, 'category_id');
     }
 
-    public function replies() {
+    public function replies()
+    {
         return $this->hasMany(ForumReply::class, 'thread_id');
     }
 
-    public function views() {
+    public function views()
+    {
         return $this->hasMany(ForumThreadView::class, 'thread_id');
     }
 
-    public function getReplyCountAttribute() {
+    public function getReplyCountAttribute()
+    {
         return $this->replies()->count();
     }
 
-    public function getViewCountAttribute() {
+    public function getViewCountAttribute()
+    {
         return $this->views()->count();
     }
-    
-    public function getContentAttribute($value) {
+
+    public function getContentAttribute($value)
+    {
         if ($this->is_scrubbed) {
             return 'Deleted';
         }
@@ -43,9 +49,10 @@ class ForumThread extends Model
         return $value;
     }
 
-    public function getLastPostAttribute() {
+    public function getLastPostAttribute()
+    {
         $lastReply = $this->replies()->with('user')->latest()->first();
-        if($lastReply) {
+        if ($lastReply) {
             return $lastReply;
         } else {
             return null;

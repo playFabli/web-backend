@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::create('marketplace_comments', function (Blueprint $table) {
             $table->id();
-            $table->integer("item_id");
-            $table->integer("user_id");
-            $table->text("content");
-            $table->boolean("is_scrubbed")->default(false);
+            $table->integer('item_id');
+            $table->integer('user_id');
+            $table->text('content');
+            $table->boolean('is_scrubbed')->default(false);
             $table->timestamps();
         });
     }

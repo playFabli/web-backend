@@ -5,21 +5,24 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable("item_id",
-            "user_id",
-            "inventory_id",
-            "price")]
+#[Fillable('item_id',
+    'user_id',
+    'inventory_id',
+    'price')]
 class MarketplaceSellRequest extends Model
 {
-    public function item() {
+    public function item()
+    {
         return $this->belongsTo(MarketplaceItem::class, 'item_id');
     }
 
-    public function user() {
+    public function user()
+    {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function inventory() {
+    public function inventory()
+    {
         return $this->belongsTo(MarketplaceItemInventory::class, 'inventory_id');
     }
 }

@@ -13,11 +13,11 @@ return new class extends Migration
     {
         Schema::create('marketplace_sell_request_histories', function (Blueprint $table) {
             $table->id();
-            $table->integer("from_id");
-            $table->integer("to_id");
-            $table->integer("item_id");
-            $table->integer("price");
-            $table->integer("serial");
+            $table->integer('from_id');
+            $table->integer('to_id');
+            $table->integer('item_id');
+            $table->integer('price');
+            $table->integer('serial');
             $table->timestamps();
         });
     }

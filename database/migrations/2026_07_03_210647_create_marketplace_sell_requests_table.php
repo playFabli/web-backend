@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::create('marketplace_sell_requests', function (Blueprint $table) {
             $table->id();
-            $table->integer("item_id");
-            $table->integer("inventory_id");
-            $table->integer("user_id");
-            $table->integer("price");
+            $table->integer('item_id');
+            $table->integer('inventory_id');
+            $table->integer('user_id');
+            $table->integer('price');
             $table->timestamps();
         });
     }

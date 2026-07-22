@@ -26,7 +26,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->enum('vote', ['upvote', 'downvote']);
             $table->timestamps();
-            
+
             $table->unique(['petition_id', 'user_id']);
         });
     }

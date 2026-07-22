@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('marketplace_categories', function (Blueprint $table) {
             $table->id();
-            $table->string("title");
-            $table->boolean("is_admin_only")->default(true);
+            $table->string('title');
+            $table->boolean('is_admin_only')->default(true);
             $table->timestamps();
         });
     }

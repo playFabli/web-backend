@@ -6,17 +6,18 @@ use Illuminate\Database\Eloquent\Model;
 
 class Trade extends Model
 {
-    protected $appends = ["offering", "requesting"];
+    protected $appends = ['offering', 'requesting'];
 
-    public function getOfferingAttribute() {
+    public function getOfferingAttribute()
+    {
         $csv = $this->offering_csv;
-        $arr = explode(";", $csv);
+        $arr = explode(';', $csv);
 
         $data = [];
-        foreach($arr as $id) {
-            $inventory = MarketplaceItemInventory::where("id", $id)->with("item")->first();
+        foreach ($arr as $id) {
+            $inventory = MarketplaceItemInventory::where('id', $id)->with('item')->first();
 
-            if($inventory) {
+            if ($inventory) {
                 $data[] = $inventory;
             }
         }
@@ -24,15 +25,16 @@ class Trade extends Model
         return $data;
     }
 
-    public function getRequestingAttribute() {
+    public function getRequestingAttribute()
+    {
         $csv = $this->requesting_csv;
-        $arr = explode(";", $csv);
+        $arr = explode(';', $csv);
 
         $data = [];
-        foreach($arr as $id) {
-            $inventory = MarketplaceItemInventory::where("id", $id)->with("item")->first();
+        foreach ($arr as $id) {
+            $inventory = MarketplaceItemInventory::where('id', $id)->with('item')->first();
 
-            if($inventory) {
+            if ($inventory) {
                 $data[] = $inventory;
             }
         }
@@ -40,11 +42,13 @@ class Trade extends Model
         return $data;
     }
 
-    public function from() {
+    public function from()
+    {
         return $this->belongsTo(User::class, 'from_id');
     }
 
-    public function to() {
+    public function to()
+    {
         return $this->belongsTo(User::class, 'to_id');
     }
 }

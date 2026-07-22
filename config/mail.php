@@ -63,6 +63,10 @@ return [
 
         'resend' => [
             'transport' => 'resend',
+            'guzzle' => [
+                // Отключает SSL только если в .env стоит APP_ENV=local
+                'verify' => config('app.env') === 'local' ? false : true,
+            ],
         ],
 
         'sendmail' => [

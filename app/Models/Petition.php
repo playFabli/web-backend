@@ -13,11 +13,11 @@ class Petition extends Model
         'type',
         'upvotes',
         'downvotes',
-        'approved'
+        'approved',
     ];
 
     protected $casts = [
-        'approved' => 'boolean'
+        'approved' => 'boolean',
     ];
 
     public function user()

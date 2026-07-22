@@ -18,51 +18,51 @@ return new class extends Migration
             $table->string('parts_affected')->nullable()->after('has_texture');
         });
 
-        $hats = new MarketplaceCategory();
-        $hats->title = "Hats";
+        $hats = new MarketplaceCategory;
+        $hats->title = 'Hats';
         $hats->is_admin_only = true;
         $hats->has_model = true;
         $hats->has_texture = true;
         $hats->save();
 
-        $faces = new MarketplaceCategory();
-        $faces->title = "Faces";
+        $faces = new MarketplaceCategory;
+        $faces->title = 'Faces';
         $faces->is_admin_only = true;
         $faces->has_model = false;
         $faces->has_texture = true;
-        $faces->parts_affected = "head";
+        $faces->parts_affected = 'head';
         $faces->save();
 
-        $gear = new MarketplaceCategory();
-        $gear->title = "Gear";
+        $gear = new MarketplaceCategory;
+        $gear->title = 'Gear';
         $gear->is_admin_only = true;
         $gear->has_model = true;
         $gear->has_texture = true;
-        $gear->parts_affected = "";
+        $gear->parts_affected = '';
         $gear->save();
 
-        $boxes = new MarketplaceCategory();
-        $boxes->title = "Boxes";
+        $boxes = new MarketplaceCategory;
+        $boxes->title = 'Boxes';
         $boxes->is_admin_only = true;
         $boxes->has_model = false;
         $boxes->has_texture = false;
-        $boxes->parts_affected = "";
+        $boxes->parts_affected = '';
         $boxes->save();
 
-        $shirts = new MarketplaceCategory();
-        $shirts->title = "Shirts";
+        $shirts = new MarketplaceCategory;
+        $shirts->title = 'Shirts';
         $shirts->is_admin_only = false;
         $shirts->has_model = false;
         $shirts->has_texture = true;
-        $shirts->parts_affected = "left_arm,torso,right_arm";
+        $shirts->parts_affected = 'left_arm,torso,right_arm';
         $shirts->save();
 
-        $pants = new MarketplaceCategory();
-        $pants->title = "Pants";
+        $pants = new MarketplaceCategory;
+        $pants->title = 'Pants';
         $pants->is_admin_only = false;
         $pants->has_model = false;
         $pants->has_texture = true;
-        $pants->parts_affected = "left_leg,right_leg";
+        $pants->parts_affected = 'left_leg,right_leg';
         $pants->save();
     }
 

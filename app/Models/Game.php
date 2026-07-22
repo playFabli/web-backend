@@ -26,6 +26,7 @@ class Game extends Model
         if ($total === 0) {
             return 0;
         }
+
         return round(($this->likes_count / $total) * 100);
     }
 

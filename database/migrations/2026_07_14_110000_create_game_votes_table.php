@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->enum('vote', ['like', 'dislike']);
             $table->timestamps();
-            
+
             $table->unique(['game_id', 'user_id']);
         });
     }

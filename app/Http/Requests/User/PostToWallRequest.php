@@ -23,7 +23,7 @@ class PostToWallRequest extends FormRequest
     public function rules(): array
     {
         return [
-            "content"=>["required","max:500"]
+            'content' => ['required', 'max:500'],
         ];
     }
 }

@@ -123,8 +123,8 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
-    'renderer_directory' => '/var/www/rendering',
-    'storage_directory' => '/var/www/backend/public/storage',
-    'blender_path' => 'blender279'
+    'renderer_directory' => env('APP_ENV', 'local') == 'local' ? 'C:/Users/Daniel/Downloads/fabli/rendering' : '/var/www/rendering',
+    'storage_directory' => env('APP_ENV', 'local') == 'local' ? 'C:/Users/Daniel/Downloads/fabli/backend/public/storage' : '/var/www/backend/public/storage',
+    'blender_path' => env('APP_ENV', 'local') == 'local' ? 'C:\\Users\\Daniel\\Downloads\\blender-2.79b-windows64\\blender.exe' : 'blender279',
 
 ];

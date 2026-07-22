@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('right_leg_color')->default('#D9C5B2');
             $table->string('head_color')->default('#D9C5B2');
             $table->timestamps();
-            
+
             $table->unique('user_id');
         });
     }

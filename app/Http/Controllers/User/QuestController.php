@@ -4,10 +4,9 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use App\Models\QuestDefinition;
-use App\Models\UserQuest;
 use App\Models\User;
+use App\Models\UserQuest;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
 
 class QuestController extends Controller
 {
@@ -17,7 +16,7 @@ class QuestController extends Controller
      */
     public function index()
     {
-        $user = app("token_user");
+        $user = app('token_user');
         $now = Carbon::now();
 
         // Generate daily quests if needed
@@ -43,27 +42,27 @@ class QuestController extends Controller
      */
     public function claim($questId)
     {
-        $user = app("token_user");
+        $user = app('token_user');
 
         $quest = UserQuest::where('id', $questId)
             ->where('user_id', $user->id)
             ->first();
 
-        if (!$quest) {
+        if (! $quest) {
             return response()->json([
-                "message" => "Quest not found"
+                'message' => 'Quest not found',
             ], 404);
         }
 
-        if (!$quest->is_completed) {
+        if (! $quest->is_completed) {
             return response()->json([
-                "message" => "Quest is not completed yet"
+                'message' => 'Quest is not completed yet',
             ], 422);
         }
 
         if ($quest->is_claimed) {
             return response()->json([
-                "message" => "Quest already claimed"
+                'message' => 'Quest already claimed',
             ], 422);
         }
 
@@ -76,10 +75,10 @@ class QuestController extends Controller
         $quest->save();
 
         return response()->json([
-            "message" => "Quest claimed successfully",
-            "coins" => $quest->coin_reward,
-            "exp" => $quest->exp_reward,
-            "user" => $user
+            'message' => 'Quest claimed successfully',
+            'coins' => $quest->coin_reward,
+            'exp' => $quest->exp_reward,
+            'user' => $user,
         ]);
     }
 
@@ -90,7 +89,7 @@ class QuestController extends Controller
     public static function incrementProgress($userId, $questName, $amount = 1)
     {
         $now = Carbon::now();
-        
+
         $quest = UserQuest::where('user_id', $userId)
             ->where('name', $questName)
             ->where('is_completed', false)
@@ -98,16 +97,16 @@ class QuestController extends Controller
             ->where('expires_at', '>', $now)
             ->first();
 
-        if (!$quest) {
+        if (! $quest) {
             return;
         }
 
         $quest->current_value = $quest->current_value + $amount;
-        
+
         if ($quest->current_value >= $quest->required_value) {
             $quest->is_completed = true;
         }
-        
+
         $quest->save();
     }
 
@@ -167,7 +166,7 @@ class QuestController extends Controller
             $coinReward = (int) round($definition->coin_reward * $levelMultiplier);
             $expReward = (int) round($definition->exp_reward * $levelMultiplier);
 
-            $quest = new UserQuest();
+            $quest = new UserQuest;
             $quest->user_id = $user->id;
             $quest->quest_definition_id = $definition->id;
             $quest->type = $type;

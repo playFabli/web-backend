@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::create('site_settings', function (Blueprint $table) {
             $table->id();
-            $table->integer("starting_currency")->default(100);
-            $table->integer("daily_bonus")->default(10);
-            $table->boolean("maintenance_mode")->default(false);
-            $table->boolean("registration_open")->default(true);
+            $table->integer('starting_currency')->default(100);
+            $table->integer('daily_bonus')->default(10);
+            $table->boolean('maintenance_mode')->default(false);
+            $table->boolean('registration_open')->default(true);
             $table->timestamps();
         });
     }

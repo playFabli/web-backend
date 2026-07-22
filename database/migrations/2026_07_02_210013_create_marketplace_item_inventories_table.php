@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::create('marketplace_item_inventories', function (Blueprint $table) {
             $table->id();
-            $table->integer("item_id");
-            $table->integer("user_id");
-            $table->integer("serial");
-            $table->integer("price");
+            $table->integer('item_id');
+            $table->integer('user_id');
+            $table->integer('serial');
+            $table->integer('price');
             $table->timestamps();
         });
     }
