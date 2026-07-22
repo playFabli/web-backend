@@ -24,6 +24,8 @@ Route::post("/payments/webhook", function() {
             $user->coins = $user->coins + $amountBought;
             $user->save();
 
+            $contract->delete();
+
             return response()->json(["All good"], 200);
         }
     }
