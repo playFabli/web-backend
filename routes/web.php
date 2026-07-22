@@ -21,7 +21,7 @@ Route::post("/payments/webhook", function() {
                 return response()->json(["Contract finished"], 200);                
             }
 
-            $availableProducts = ["5" => 500, "9.99" => 1000, "19.99" => 2500, "39.99" => 5000];
+            $availableProducts = ["5" => 500, "9.99" => 1050, "19.99" => 2700, "39.99" => 5500];
             $amountBought = $availableProducts[$data["amount"]];
 
             $user = User::find($contract->user_id);
