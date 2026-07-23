@@ -183,6 +183,7 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
 
         Route::get('/sell-requests/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'sellRequests']);
         Route::post('/sell-request/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'createSellRequest']);
+        Route::delete('/sell-request/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'deleteSellRequest']);
         Route::post('/accept-sell-request/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'acceptSellRequest']);
     });
 });

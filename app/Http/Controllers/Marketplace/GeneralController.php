@@ -541,6 +541,31 @@ class GeneralController extends Controller
 
     }
 
+    public function deleteSellRequest($id)
+    {
+        $request = MarketplaceSellRequest::where('id', $id)->first();
+
+        if (! $request) {
+            return response()->json([
+                'message' => 'Request not found',
+            ], 404);
+        }
+
+        $user = app('token_user');
+
+        if ($request->user_id !== $user->id) {
+            return response()->json([
+                'message' => 'You can only delete your own sell requests',
+            ], 403);
+        }
+
+        $request->delete();
+
+        return response()->json([
+            'data' => 'success',
+        ]);
+    }
+
     public function acceptSellRequest($id)
     {
         $request = MarketplaceSellRequest::where('id', $id)->first();

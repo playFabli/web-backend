@@ -311,9 +311,7 @@ class GeneralController extends Controller
             return response()->json(['data' => [], 'total' => 0], 200);
         }
 
-        $itemsQuery = MarketplaceItemInventory::where('user_id', $user->id)->whereHas('item', function ($query) {
-             $query->where('moderation_status', 'approved');
-            })
+        $itemsQuery = MarketplaceItemInventory::where('user_id', $user->id)
             ->with('item')
             ->with('item.category');
 
