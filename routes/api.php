@@ -54,6 +54,7 @@ Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAdmin::class]]
     Route::post('/assets', [GeneralController::class, 'createAsset']);
     Route::post('/assets/{id}', [GeneralController::class, 'updateAsset']);
     Route::delete('/assets/{id}', [GeneralController::class, 'deleteAsset']);
+    Route::post('/assets/{id}/grant', [GeneralController::class, 'grantAsset']);
 
     // Moderation
     Route::get('/pending-items', [GeneralController::class, 'pendingItems']);

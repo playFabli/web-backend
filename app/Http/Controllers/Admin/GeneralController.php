@@ -333,6 +333,45 @@ class GeneralController extends Controller
         ], 200);
     }
 
+    public function grantAsset($id, Request $request)
+    {
+        $admin = $this->getAdmin();
+        $item = MarketplaceItem::where('id', $id)->first();
+        if (! $item) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Item not found',
+            ], 404);
+        }
+
+        $data = $request->validate([
+            'user_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $user = User::where('id', $data['user_id'])->first();
+        if (! $user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User not found',
+            ], 404);
+        }
+
+        $inventory = MarketplaceItemInventory::create([
+            'item_id' => $item->id,
+            'user_id' => $user->id,
+            'serial' => $item->sold_count + 1,
+            'price' => 0,
+        ]);
+
+        if ($admin) {
+            $this->log($admin->id, $user->id, "Granted asset #$id to user #{$user->id}");
+        }
+
+        return response()->json([
+            'data' => $inventory,
+        ], 201);
+    }
+
     public function deleteAsset($id)
     {
         $admin = $this->getAdmin();
