@@ -17,6 +17,7 @@ use App\Models\MarketplaceItem;
 use App\Models\MarketplaceItemInventory;
 use App\Models\MarketplaceSellRequest;
 use App\Models\MarketplaceSellRequestHistory;
+use App\Models\User;
 
 class GeneralController extends Controller
 {
@@ -435,6 +436,9 @@ class GeneralController extends Controller
         $creator = User::find($item->user_id);
         $creator->coins = $creator->coins + $item->price;
         $creator->save();
+
+        QuestController::incrementProgress($creator->id, 'Sell Items on Marketplace', 1);
+        QuestController::incrementProgress($creator->id, 'Marketplace Tycoon', 1);
 
         if ($item->is_limited) {
             $item->stock_left = $item->stock_left - 1;
