@@ -432,6 +432,10 @@ class GeneralController extends Controller
         $user->coins = $user->coins - $item->price;
         $user->save();
 
+        $creator = User::find($item->user_id);
+        $creator->coins = $creator->coins + $item->price;
+        $creator->save();
+
         if ($item->is_limited) {
             $item->stock_left = $item->stock_left - 1;
             $item->save();
