@@ -408,7 +408,7 @@ class GeneralController extends Controller
 
     public function buy($id)
     {
-        $item = MarketplaceItem::select(['id', 'user_id', 'title', 'price', 'sold_count', 'is_limited', 'stock_left', 'is_deleted'])
+        $item = MarketplaceItem::select(['id', 'user_id', 'title', 'price', 'is_limited', 'stock_left', 'is_deleted'])
             ->where('id', $id)
             ->where('is_deleted', false)
             ->first();
