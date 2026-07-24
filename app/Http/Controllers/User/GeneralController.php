@@ -153,8 +153,8 @@ class GeneralController extends Controller
 
         $fromId = is_object($from) ? $from->id : $from['id'];
         $request = UserFriendRequest::select(['id', 'from_id', 'to_id'])
-            ->where('from_id', $fromId)->where('to_id', $user->id)
-            ->orWhere('from_id', $user->id)->where('to_id', $fromId)
+            ->where('from_id', $fromId)->where('to_id', $user['id'])
+            ->orWhere('from_id', $user['id'])->where('to_id', $fromId)
             ->first();
         if ($request) {
             if ($request->from_id == $fromId) {
@@ -164,8 +164,8 @@ class GeneralController extends Controller
             }
         } else {
             $friends = UserFriend::select(['id', 'first_id', 'second_id'])
-                ->where('first_id', $fromId)->where('second_id', $user->id)
-                ->orWhere('first_id', $user->id)->where('second_id', $fromId)
+                ->where('first_id', $fromId)->where('second_id', $user['id'])
+                ->orWhere('first_id', $user['id'])->where('second_id', $fromId)
                 ->first();
             if ($friends) {
                 $user['friend_status'] = 'friends';
