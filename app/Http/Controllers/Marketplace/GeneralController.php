@@ -19,6 +19,7 @@ use App\Models\MarketplaceSellRequest;
 use App\Models\MarketplaceSellRequestHistory;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class GeneralController extends Controller
 {
@@ -147,6 +148,10 @@ class GeneralController extends Controller
             $this->renderItem($item);
         }
 
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "marketplace:item:{$request->item_id}")
+            ->delete();
+        
         return response()->json([
             'data' => $item,
         ], 200);
@@ -186,6 +191,12 @@ class GeneralController extends Controller
         $inventory->save();
 
         $this->renderItem($item);
+
+        $prefix = config('cache.prefix', '');
+
+        DB::table('cache')
+            ->where('key', 'like', "{$prefix}marketplace:items:categories:%{$item->category_id}%")
+            ->delete();
 
         return response()->json([
             'data' => $item,
@@ -266,7 +277,7 @@ class GeneralController extends Controller
         $query = request()->query('query', '');
         $page = request()->query('page', 1);
 
-        $cacheKey = 'marketplace:items:categories:'.md5(implode(',', $categories)).":price:{$priceMin}:{$priceMax}:rap:{$rapMin}:{$rapMax}:query:".md5($query).":page:{$page}";
+        $cacheKey = 'marketplace:items:categories:'.implode('_', $categories).":price:{$priceMin}:{$priceMax}:rap:{$rapMin}:{$rapMax}:query:".md5($query).":page:{$page}";
 
         $items = Cache::remember($cacheKey, 60, function () use ($categories, $priceMin, $priceMax, $rapMin, $rapMax, $query) {
             $paginator = MarketplaceItem::select([
@@ -377,6 +388,10 @@ class GeneralController extends Controller
             'content' => $data['content'],
         ]);
 
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "marketplace:item:{$request->item_id}:comments:page:%")
+            ->delete();
+
         return response()->json($comment, 201);
     }
 
@@ -473,6 +488,10 @@ class GeneralController extends Controller
             $item->save();
         }
 
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "inventory:user:{$user->id}:%")
+            ->delete();
+
         return response()->json([
             'message' => 'Successfully bought item!',
         ], 200);
@@ -485,7 +504,7 @@ class GeneralController extends Controller
                 ->where('id', $id)
                 ->where('is_deleted', false)
                 ->with('category:id,title')
-                ->first();
+                ->first()->toArray();
         });
 
         if (! $category) {
@@ -504,7 +523,7 @@ class GeneralController extends Controller
             return MarketplaceCaseContent::select(['id', 'case_id', 'item_id'])
                 ->where('case_id', $id)
                 ->with('item:id,title,texture_path')
-                ->get();
+                ->get()->toArray();
         });
 
         return response()->json(['data' => $items], 200);
@@ -600,6 +619,18 @@ class GeneralController extends Controller
             'price' => $data['price'],
         ]);
 
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "marketplace:item:{$request->item_id}:sell_requests:page:%")
+            ->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "marketplace:item:{$request->item_id}:owners:page:%")
+            ->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "inventory:user:{$user->id}:%")
+            ->delete();
+
         return response()->json([
             'data' => 'success',
         ], 201);
@@ -626,6 +657,10 @@ class GeneralController extends Controller
         }
 
         $request->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "marketplace:item:{$request->item_id}:sell_requests:page:%")
+            ->delete();
 
         return response()->json([
             'data' => 'success',
@@ -687,6 +722,18 @@ class GeneralController extends Controller
         $user->recalculateStats();
         
         $request->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "marketplace:item:{$request->item_id}:sell_requests:page:%")
+            ->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "inventory:user:{$user->id}:%")
+            ->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "inventory:user:{$request->user->id}:%")
+            ->delete();
 
         QuestController::incrementProgress($request->user->id, 'Sell Items on Marketplace', 1);
         QuestController::incrementProgress($request->user->id, 'Marketplace Tycoon', 1);

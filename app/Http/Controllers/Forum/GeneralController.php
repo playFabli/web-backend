@@ -150,11 +150,11 @@ class GeneralController extends Controller
         QuestController::incrementProgress($user->id, 'Forum Engagement', 1);
 
         DB::table('cache')
-            ->where('key', 'like', "forum:threads:category:{$thread->category_id}:%")
+            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:{$thread->category_id}:%")
             ->delete();
 
         DB::table('cache')
-            ->where('key', 'like', "forum:threads:category:0:%")
+            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:0:%")
             ->delete();
 
         return response()->json([
@@ -188,8 +188,8 @@ class GeneralController extends Controller
         QuestController::incrementProgress($user->id, 'Interact with other players on the forums', 1);
 
         DB::table('cache')
-        ->where('key', 'like', "fablicacheforum:thread:{$threadId}:replies:page:%")
-        ->delete(); 
+            ->where('key', 'like', config('cache.prefix', '') . "forum:thread:{$threadId}:replies:page:%")
+            ->delete(); 
 
         return response()->json([
             'data' => $reply,
@@ -209,6 +209,18 @@ class GeneralController extends Controller
         $thread->is_scrubbed = true;
         $thread->save();
 
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:{$thread->category_id}:%")
+            ->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:0:%")
+            ->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "forum:thread:{$thread->id}")
+            ->delete();
+
         return response()->json([], 200);
     }
 
@@ -222,6 +234,18 @@ class GeneralController extends Controller
         }
         $thread->is_deleted = ! $thread->is_deleted;
         $thread->save();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:{$thread->category_id}:%")
+            ->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:0:%")
+            ->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "forum:thread:{$thread->id}")
+            ->delete();
 
         return response()->json([], 200);
     }
@@ -237,6 +261,18 @@ class GeneralController extends Controller
         $thread->is_pinned = ! $thread->is_pinned;
         $thread->save();
 
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:{$thread->category_id}:%")
+            ->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:0:%")
+            ->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "forum:thread:{$thread->id}")
+            ->delete();
+
         return response()->json([], 200);
     }
 
@@ -250,6 +286,18 @@ class GeneralController extends Controller
         }
         $thread->is_locked = ! $thread->is_locked;
         $thread->save();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:{$thread->category_id}:%")
+            ->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:0:%")
+            ->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "forum:thread:{$thread->id}")
+            ->delete();
 
         return response()->json([], 200);
     }
@@ -266,6 +314,10 @@ class GeneralController extends Controller
         $reply->is_scrubbed = true;
         $reply->save();
 
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "forum:thread:{$reply->thread_id}:replies:page:%")
+            ->delete(); 
+
         return response()->json([], 200);
     }
 
@@ -279,6 +331,10 @@ class GeneralController extends Controller
         }
         $reply->is_deleted = ! $reply->is_deleted;
         $reply->save();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "forum:thread:{$reply->thread_id}:replies:page:%")
+            ->delete(); 
 
         return response()->json([], 200);
     }

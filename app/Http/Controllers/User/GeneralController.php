@@ -389,10 +389,10 @@ class GeneralController extends Controller
             }
 
             if ($limit != 0) {
-                return $itemsQuery->limit($limit)->get();
+                return $itemsQuery->limit($limit)->get()->toArray();
             }
 
-            return $itemsQuery->get();
+            return $itemsQuery->get()->toArray();
         });
 
         return response()->json($items);
@@ -551,7 +551,7 @@ class GeneralController extends Controller
             return User::select(['id', 'username', 'created_at'])
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
-                ->get();
+                ->get()->toArray();
         });
 
         return response()->json([
@@ -633,7 +633,7 @@ class GeneralController extends Controller
                 return $petition;
             });
 
-            return $paginated;
+            return $paginated->toArray();
         });
 
         $petitions->getCollection()->transform(function ($petition) use ($user) {
