@@ -25,7 +25,7 @@ class GeneralController extends Controller
     public function categories($all = 1)
     {
 
-        $categories = Cache::remember("marketplace:categories:all:{$all}", 3600, function () use ($all) {
+        $categories = Cache::rememberArray("marketplace:categories:all:{$all}", 3600, function () use ($all) {
             if (! $all) {
                 return MarketplaceCategory::where('is_admin_only', 0)
                     ->get()
@@ -268,7 +268,7 @@ class GeneralController extends Controller
 
         $cacheKey = 'marketplace:items:categories:'.md5(implode(',', $categories)).":price:{$priceMin}:{$priceMax}:rap:{$rapMin}:{$rapMax}:query:".md5($query).":page:{$page}";
 
-        $items = Cache::remember($cacheKey, 60, function () use ($categories, $priceMin, $priceMax, $rapMin, $rapMax, $query) {
+        $items = Cache::rememberArray($cacheKey, 60, function () use ($categories, $priceMin, $priceMax, $rapMin, $rapMax, $query) {
             $paginator = MarketplaceItem::select([
                 'id', 'user_id', 'category_id', 'title', 'price', 'rap', 'rarity',
                 'is_limited', 'stock_count', 'stock_left', 'is_offsale', 'created_at',
@@ -300,7 +300,7 @@ class GeneralController extends Controller
 
     public function item($id)
     {
-        $item = Cache::remember("marketplace:item:{$id}", 60, function () use ($id) {
+        $item = Cache::rememberArray("marketplace:item:{$id}", 60, function () use ($id) {
             return MarketplaceItem::select([
                 'id', 'user_id', 'category_id', 'title', 'description', 'price', 'rap', 'rarity',
                 'texture_path', 'is_limited', 'is_offsale', 'stock_count', 'stock_left',
@@ -314,7 +314,7 @@ class GeneralController extends Controller
                     $query->select(['id', 'item_id', 'user_id', 'content', 'created_at'])
                         ->orderBy('created_at', 'desc');
                 }, 'comments.user:id,username'])
-                ->first();
+                ->first()->toArray();
         });
 
         if (! $item) {
@@ -330,11 +330,11 @@ class GeneralController extends Controller
 
     public function comments($id)
     {
-        $item = Cache::remember("marketplace:item:{$id}", 60, function () use ($id) {
+        $item = Cache::rememberArray("marketplace:item:{$id}", 60, function () use ($id) {
             return MarketplaceItem::select(['id', 'is_deleted'])
                 ->where('id', $id)
                 ->where('is_deleted', false)
-                ->first();
+                ->first()->toArray();
         });
 
         if (! $item) {
@@ -344,12 +344,12 @@ class GeneralController extends Controller
         }
 
         $page = request()->query('page', 1);
-        $comments = Cache::remember("marketplace:item:{$id}:comments:page:{$page}", 30, function () use ($id) {
+        $comments = Cache::rememberArray("marketplace:item:{$id}:comments:page:{$page}", 30, function () use ($id) {
             return MarketplaceComment::select(['id', 'item_id', 'user_id', 'content', 'created_at'])
                 ->where('item_id', $id)
                 ->with('user:id,username')
                 ->orderBy('created_at', 'desc')
-                ->get();
+                ->get()->toArray();
         });
 
         return response()->json($comments, 200);
@@ -480,7 +480,7 @@ class GeneralController extends Controller
 
     public function caseContents($id)
     {
-        $category = Cache::remember("marketplace:category:for:item:{$id}", 3600, function () use ($id) {
+        $category = Cache::rememberArray("marketplace:category:for:item:{$id}", 3600, function () use ($id) {
             return MarketplaceItem::select(['id', 'category_id'])
                 ->where('id', $id)
                 ->where('is_deleted', false)
@@ -500,7 +500,7 @@ class GeneralController extends Controller
             ], 422);
         }
 
-        $items = Cache::remember("marketplace:case:{$id}:contents", 120, function () use ($id) {
+        $items = Cache::rememberArray("marketplace:case:{$id}:contents", 120, function () use ($id) {
             return MarketplaceCaseContent::select(['id', 'case_id', 'item_id'])
                 ->where('case_id', $id)
                 ->with('item:id,title,texture_path')
@@ -524,7 +524,7 @@ class GeneralController extends Controller
         }
 
         $page = request()->query('page', 1);
-        $owners = Cache::remember("marketplace:item:{$id}:owners:page:{$page}", 60, function () use ($id) {
+        $owners = Cache::rememberArray("marketplace:item:{$id}:owners:page:{$page}", 60, function () use ($id) {
             return MarketplaceItemInventory::select(['id', 'item_id', 'user_id', 'serial'])
                 ->where('item_id', $id)
                 ->with('user:id,username')
@@ -549,7 +549,7 @@ class GeneralController extends Controller
         }
 
         $page = request()->query('page', 1);
-        $requests = Cache::remember("marketplace:item:{$id}:sell_requests:page:{$page}", 60, function () use ($id) {
+        $requests = Cache::rememberArray("marketplace:item:{$id}:sell_requests:page:{$page}", 60, function () use ($id) {
             return MarketplaceSellRequest::select(['id', 'item_id', 'user_id', 'inventory_id', 'price', 'created_at'])
                 ->where('item_id', $id)
                 ->with('inventory:id,item_id,user_id,serial')
