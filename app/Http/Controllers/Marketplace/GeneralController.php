@@ -46,7 +46,6 @@ class GeneralController extends Controller
             return response()->json(['error' => 'Category not found'], 404);
         }
 
-        // Save the uploaded texture to a temp location
         $file = $request->file('texture');
         $hash = md5(time().rand());
         $storageDir = rtrim(config('app.renderer_directory'), '/\\').DIRECTORY_SEPARATOR.'textures';
@@ -61,16 +60,11 @@ class GeneralController extends Controller
         $renderer = new PythonRenderHelper;
         $renderer->loadBlend(config('app.renderer_directory').'/scene.blend');
 
-        // All colors should be pure white for item rendering
         $whiteColor = '#FFFFFF';
 
-        // Load the 3D model if the category has one
         if ($category->has_model) {
-            // For preview, we don't have an item ID model yet, so we skip custom model loading
-            // but we still apply textures to the base avatar parts
         }
 
-        // Apply texture if the category has one
         if ($category->has_texture) {
             $parts = $category->parts_affected_array;
             $textureFullPath = config('app.renderer_directory').'/'.$texturePath;
@@ -79,10 +73,8 @@ class GeneralController extends Controller
             }
         }
 
-        // Add face
         $renderer->addTexture('head', 'default_face', config('app.renderer_directory').'/textures/def_face.png');
 
-        // Apply white colors to all parts
         $parts = ['head', 'left_arm', 'right_arm', 'torso', 'right_leg', 'left_leg'];
         foreach ($parts as $part) {
             $renderer->selectAndColor($part, $whiteColor);
@@ -90,7 +82,6 @@ class GeneralController extends Controller
 
         $outputPath = config('app.storage_directory').'/items/previews';
 
-        // Ensure preview directory exists
         if (! is_dir($outputPath)) {
             mkdir($outputPath, 0755, true);
         }
@@ -106,7 +97,6 @@ class GeneralController extends Controller
             exec(config('app.blender_path')." -b -P {$pythonFile} 2>&1", $output, $code);
         }
 
-        // Return the preview image URL
         return response()->json([
             'data' => [
                 'preview_url' => "/storage/items/previews/{$hash}.png",
@@ -117,7 +107,8 @@ class GeneralController extends Controller
 
     public function updateItem($id, UpdateItemRequest $request)
     {
-        $item = MarketplaceItem::where('id', $id)
+        $item = MarketplaceItem::select(['id', 'user_id', 'texture_path', 'is_deleted', 'moderation_status'])
+            ->where('id', $id)
             ->where('is_deleted', false)
             ->first();
 
@@ -127,14 +118,12 @@ class GeneralController extends Controller
 
         $user = app('token_user');
 
-        // Only the item creator can update their item
         if ($item->user_id !== $user->id) {
             return response()->json(['error' => 'You do not have permission to edit this item.'], 403);
         }
 
         $data = $request->validated();
 
-        // Handle texture file upload if provided
         if ($request->hasFile('texture')) {
             $file = $request->file('texture');
             $filename = time();
@@ -150,7 +139,6 @@ class GeneralController extends Controller
 
         $item->update($data);
 
-        // Re-render if texture changed
         if ($request->hasFile('texture')) {
             $this->renderItem($item);
         }
@@ -193,7 +181,6 @@ class GeneralController extends Controller
         $inventory->price = 0;
         $inventory->save();
 
-        // Render the item thumbnail
         $this->renderItem($item);
 
         return response()->json([
@@ -208,16 +195,13 @@ class GeneralController extends Controller
         $renderer = new PythonRenderHelper;
         $renderer->loadBlend(config('app.renderer_directory').'/scene.blend');
 
-        // All colors should be pure white for item rendering
         $whiteColor = '#FFFFFF';
 
-        // Load the 3D model if the category has one
         if ($category->has_model) {
             $modelPath = config('app.renderer_directory').'/models/'.$item->id;
             $renderer->loadObj($item->id, $modelPath, $category->has_texture);
         }
 
-        // Apply texture if the category has one and the item has a texture path
         if ($category->has_texture && $item->texture_path) {
             $parts = $category->parts_affected_array;
             $texturePath = config('app.renderer_directory').'/'.$item->texture_path;
@@ -226,16 +210,13 @@ class GeneralController extends Controller
             }
         }
 
-        // Add face
         $renderer->addTexture('head', 'default_face', config('app.renderer_directory').'/textures/def_face.png');
 
-        // Apply white colors to all parts
         $parts = ['head', 'left_arm', 'right_arm', 'torso', 'right_leg', 'left_leg'];
         foreach ($parts as $part) {
             $renderer->selectAndColor($part, $whiteColor);
         }
 
-        // Generate a unique hash for the render
         $hash = md5($item->id.time());
         $outputPath = config('app.storage_directory').'/items';
 
@@ -281,26 +262,29 @@ class GeneralController extends Controller
         $query = request()->query('query', '');
 
         $cacheKey = 'marketplace:items:categories:'.md5(implode(',', $categories)).":price:{$priceMin}:{$priceMax}:rap:{$rapMin}:{$rapMax}:query:".md5($query);
+
         $items = Cache::remember($cacheKey, 60, function () use ($categories, $priceMin, $priceMax, $rapMin, $rapMax, $query) {
-            // 1. Fetch the paginator object
-            $paginator = MarketplaceItem::whereIn('category_id', $categories)
+            $paginator = MarketplaceItem::select([
+                'id', 'user_id', 'category_id', 'title', 'price', 'rap', 'rarity',
+                'is_limited', 'stock_count', 'stock_left', 'is_offsale', 'created_at',
+            ])
+                ->whereIn('category_id', $categories)
                 ->where('is_deleted', false)
                 ->where('moderation_status', 'approved')
                 ->whereBetween('price', [$priceMin, $priceMax])
                 ->whereBetween('rap', [$rapMin, $rapMax])
                 ->where(function ($q) use ($query) {
-                    $q->where('title', 'like', "%$query%")
-                        ->orWhere('description', 'like', "%$query%");
+                    $q->where('title', 'like', "%{$query}%")
+                        ->orWhere('description', 'like', "%{$query}%");
                 })
-                ->with(['user', 'category']) // Combined for better readability
+                ->with('user:id,username')
+                ->with('category:id,title')
                 ->orderBy('created_at', 'desc')
                 ->paginate(12);
 
             return $paginator->toArray();
         });
 
-
-        // Track quest progress for visiting marketplace
         $user = app('token_user');
         if ($user) {
             QuestController::incrementProgress($user->id, 'Visit Marketplace', 1);
@@ -312,13 +296,19 @@ class GeneralController extends Controller
     public function item($id)
     {
         $item = Cache::remember("marketplace:item:{$id}", 60, function () use ($id) {
-            return MarketplaceItem::where('id', $id)
+            return MarketplaceItem::select([
+                'id', 'user_id', 'category_id', 'title', 'description', 'price', 'rap', 'rarity',
+                'texture_path', 'is_limited', 'is_offsale', 'stock_count', 'stock_left',
+                'moderation_status', 'created_at', 'updated_at',
+            ])
+                ->where('id', $id)
                 ->where('is_deleted', false)
-                ->with('user')
-                ->with('category')
+                ->with('user:id,username')
+                ->with('category:id,title')
                 ->with(['comments' => function ($query) {
-                    $query->orderBy('created_at', 'desc');
-                }, 'comments.user'])
+                    $query->select(['id', 'item_id', 'user_id', 'content', 'created_at'])
+                        ->orderBy('created_at', 'desc');
+                }, 'comments.user:id,username'])
                 ->first();
         });
 
@@ -336,7 +326,8 @@ class GeneralController extends Controller
     public function comments($id)
     {
         $item = Cache::remember("marketplace:item:{$id}", 60, function () use ($id) {
-            return MarketplaceItem::where('id', $id)
+            return MarketplaceItem::select(['id', 'is_deleted'])
+                ->where('id', $id)
                 ->where('is_deleted', false)
                 ->first();
         });
@@ -348,8 +339,12 @@ class GeneralController extends Controller
         }
 
         $page = request()->query('page', 1);
-        $comments = Cache::remember("marketplace:item:{$id}:comments:page:{$page}", 30, function () use ($item) {
-            return $item->comments()->with('user')->orderBy('created_at', 'desc')->get();
+        $comments = Cache::remember("marketplace:item:{$id}:comments:page:{$page}", 30, function () use ($id) {
+            return MarketplaceComment::select(['id', 'item_id', 'user_id', 'content', 'created_at'])
+                ->where('item_id', $id)
+                ->with('user:id,username')
+                ->orderBy('created_at', 'desc')
+                ->get();
         });
 
         return response()->json($comments, 200);
@@ -358,7 +353,8 @@ class GeneralController extends Controller
     public function comment($id, CommentRequest $request)
     {
         $data = $request->validated();
-        $item = MarketplaceItem::where('id', $id)
+        $item = MarketplaceItem::select(['id', 'is_deleted'])
+            ->where('id', $id)
             ->where('is_deleted', false)
             ->first();
 
@@ -381,7 +377,8 @@ class GeneralController extends Controller
 
     public function owns($id)
     {
-        $item = MarketplaceItem::where('id', $id)
+        $item = MarketplaceItem::select(['id', 'is_deleted'])
+            ->where('id', $id)
             ->where('is_deleted', false)
             ->first();
 
@@ -393,17 +390,21 @@ class GeneralController extends Controller
 
         $user = app('token_user');
 
-        $alreadyBought = MarketplaceItemInventory::where('item_id', $item->id)->where('user_id', $user->id)->get();
+        $alreadyBought = MarketplaceItemInventory::select(['id', 'item_id', 'user_id', 'serial', 'price'])
+            ->where('item_id', $item->id)
+            ->where('user_id', $user->id)
+            ->get();
 
         return response()->json([
-            'bool' => (count($alreadyBought) > 0),
+            'bool' => ($alreadyBought->isNotEmpty()),
             'data' => $alreadyBought,
         ]);
     }
 
     public function buy($id)
     {
-        $item = MarketplaceItem::where('id', $id)
+        $item = MarketplaceItem::select(['id', 'user_id', 'title', 'price', 'sold_count', 'is_limited', 'stock_left', 'is_deleted'])
+            ->where('id', $id)
             ->where('is_deleted', false)
             ->first();
 
@@ -421,7 +422,10 @@ class GeneralController extends Controller
             ], 422);
         }
 
-        $alreadyBought = MarketplaceItemInventory::where('item_id', $item->id)->where('user_id', $user->id)->exists();
+        $alreadyBought = MarketplaceItemInventory::select(['id'])
+            ->where('item_id', $item->id)
+            ->where('user_id', $user->id)
+            ->exists();
         if ($alreadyBought) {
             return response()->json([
                 'message' => 'You already own this item',
@@ -450,7 +454,9 @@ class GeneralController extends Controller
         $user->coins = $user->coins - $item->price;
         $user->save();
 
-        $creator = User::find($item->user_id);
+        $user->recalculateStats();
+
+        $creator = User::select(['id', 'coins'])->find($item->user_id);
         $creator->coins = $creator->coins + $item->price;
         $creator->save();
 
@@ -469,26 +475,31 @@ class GeneralController extends Controller
 
     public function caseContents($id)
     {
-        $item = Cache::remember("marketplace:item:{$id}", 60, function () use ($id) {
-            return MarketplaceItem::where('id', $id)
+        $category = Cache::remember("marketplace:category:for:item:{$id}", 3600, function () use ($id) {
+            return MarketplaceItem::select(['id', 'category_id'])
+                ->where('id', $id)
                 ->where('is_deleted', false)
+                ->with('category:id,title')
                 ->first();
         });
 
-        if (! $item) {
+        if (! $category) {
             return response()->json([
                 'message' => 'Item not found',
             ], 404);
         }
 
-        if ($item->category->title != 'Boxes') {
+        if ($category->category->title != 'Boxes') {
             return response()->json([
                 'message' => 'This item is not a box.',
             ], 422);
         }
 
-        $items = Cache::remember("marketplace:case:{$id}:contents", 120, function () use ($item) {
-            return MarketplaceCaseContent::where('case_id', $item->id)->with('item')->get();
+        $items = Cache::remember("marketplace:case:{$id}:contents", 120, function () use ($id) {
+            return MarketplaceCaseContent::select(['id', 'case_id', 'item_id'])
+                ->where('case_id', $id)
+                ->with('item:id,title,texture_path')
+                ->get();
         });
 
         return response()->json(['data' => $items], 200);
@@ -496,11 +507,10 @@ class GeneralController extends Controller
 
     public function owners($id)
     {
-        $item = Cache::remember("marketplace:item:{$id}", 60, function () use ($id) {
-            return MarketplaceItem::where('id', $id)
-                ->where('is_deleted', false)
-                ->first();
-        });
+        $item = MarketplaceItem::select(['id', 'is_deleted'])
+            ->where('id', $id)
+            ->where('is_deleted', false)
+            ->first();
 
         if (! $item) {
             return response()->json([
@@ -510,7 +520,11 @@ class GeneralController extends Controller
 
         $page = request()->query('page', 1);
         $owners = Cache::remember("marketplace:item:{$id}:owners:page:{$page}", 60, function () use ($id) {
-            return MarketplaceItemInventory::where('item_id', $id)->with('user')->paginate(5)->toArray();
+            return MarketplaceItemInventory::select(['id', 'item_id', 'user_id', 'serial'])
+                ->where('item_id', $id)
+                ->with('user:id,username')
+                ->paginate(5)
+                ->toArray();
         });
 
         return response()->json($owners, 200);
@@ -518,11 +532,10 @@ class GeneralController extends Controller
 
     public function sellRequests($id)
     {
-        $item = Cache::remember("marketplace:item:{$id}", 60, function () use ($id) {
-            return MarketplaceItem::where('id', $id)
-                ->where('is_deleted', false)
-                ->first();
-        });
+        $item = MarketplaceItem::select(['id', 'is_deleted'])
+            ->where('id', $id)
+            ->where('is_deleted', false)
+            ->first();
 
         if (! $item) {
             return response()->json([
@@ -532,7 +545,12 @@ class GeneralController extends Controller
 
         $page = request()->query('page', 1);
         $requests = Cache::remember("marketplace:item:{$id}:sell_requests:page:{$page}", 60, function () use ($id) {
-            return MarketplaceSellRequest::where('item_id', $id)->with('inventory')->with('user')->paginate(5)->toArray();
+            return MarketplaceSellRequest::select(['id', 'item_id', 'user_id', 'inventory_id', 'price', 'created_at'])
+                ->where('item_id', $id)
+                ->with('inventory:id,item_id,user_id,serial')
+                ->with('user:id,username')
+                ->paginate(5)
+                ->toArray();
         });
 
         return response()->json($requests, 200);
@@ -541,7 +559,8 @@ class GeneralController extends Controller
     public function createSellRequest($id, CreateSellRequest $request)
     {
         $data = $request->validated();
-        $item = MarketplaceItem::where('id', $id)
+        $item = MarketplaceItem::select(['id', 'is_deleted'])
+            ->where('id', $id)
             ->where('is_deleted', false)
             ->first();
 
@@ -552,7 +571,10 @@ class GeneralController extends Controller
         }
 
         $user = app('token_user');
-        $inventory = MarketplaceItemInventory::where('item_id', $item->id)->where('user_id', $user->id)->first();
+        $inventory = MarketplaceItemInventory::select(['id', 'item_id', 'user_id'])
+            ->where('item_id', $item->id)
+            ->where('user_id', $user->id)
+            ->first();
 
         if (! $inventory) {
             return response()->json([
@@ -560,7 +582,6 @@ class GeneralController extends Controller
             ], 422);
         }
 
-        // is already selling?
         if (MarketplaceSellRequest::where('inventory_id', $inventory->id)->exists()) {
             return response()->json([
                 'message' => 'You are already selling this item',
@@ -577,12 +598,13 @@ class GeneralController extends Controller
         return response()->json([
             'data' => 'success',
         ], 201);
-
     }
 
     public function deleteSellRequest($id)
     {
-        $request = MarketplaceSellRequest::where('id', $id)->first();
+        $request = MarketplaceSellRequest::select(['id', 'user_id'])
+            ->where('id', $id)
+            ->first();
 
         if (! $request) {
             return response()->json([
@@ -607,7 +629,10 @@ class GeneralController extends Controller
 
     public function acceptSellRequest($id)
     {
-        $request = MarketplaceSellRequest::where('id', $id)->first();
+        $request = MarketplaceSellRequest::select(['id', 'item_id', 'user_id', 'inventory_id', 'price'])
+            ->with('user:id,coins')
+            ->where('id', $id)
+            ->first();
 
         if (! $request) {
             return response()->json([
@@ -616,7 +641,11 @@ class GeneralController extends Controller
         }
 
         $user = app('token_user');
-        $inventory = MarketplaceItemInventory::where('id', $request->inventory_id)->where('user_id', $request->user_id)->where('item_id', $request->item_id)->first();
+        $inventory = MarketplaceItemInventory::select(['id', 'item_id', 'user_id', 'serial'])
+            ->where('id', $request->inventory_id)
+            ->where('user_id', $request->user_id)
+            ->where('item_id', $request->item_id)
+            ->first();
         if (! $inventory) {
             $request->delete();
 
@@ -645,12 +674,15 @@ class GeneralController extends Controller
         $request->user->coins = $request->user->coins + $request->price;
         $request->user->save();
 
+        
         $inventory->user_id = $user->id;
         $inventory->save();
 
+        $request->user->recalculateStats();
+        $user->recalculateStats();
+        
         $request->delete();
 
-        // Track quest progress for selling items
         QuestController::incrementProgress($request->user->id, 'Sell Items on Marketplace', 1);
         QuestController::incrementProgress($request->user->id, 'Marketplace Tycoon', 1);
 

@@ -18,7 +18,6 @@ use App\Models\UserFriendRequest;
 use App\Models\UserPaymentContract;
 use App\Models\UserProfileWall;
 use App\Models\UserWearing;
-use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -47,13 +46,13 @@ class GeneralController extends Controller
     {
         $user = app('token_user');
 
-        // Get the latest ban (even if expired)
-        $latestBan = UserBan::where('user_id', $user->id)
+        $latestBan = UserBan::select(['id', 'user_id', 'banned_by_admin_id', 'banned_for', 'banned_at', 'expires_at'])
+            ->where('user_id', $user->id)
             ->latest()
             ->first();
 
-        // Check if there's an active ban
-        $activeBan = UserBan::where('user_id', $user->id)
+        $activeBan = UserBan::select(['id', 'user_id', 'banned_by_admin_id', 'banned_for', 'banned_at', 'expires_at'])
+            ->where('user_id', $user->id)
             ->where(function ($query) {
                 $query->whereNull('expires_at')
                     ->orWhere('expires_at', '>', now());
@@ -75,7 +74,6 @@ class GeneralController extends Controller
             ], 200);
         }
 
-        // If no active ban but there's a latest ban, it's expired
         if ($latestBan) {
             return response()->json([
                 'data' => [
@@ -101,7 +99,6 @@ class GeneralController extends Controller
     {
         $user = app('token_user');
 
-        // Get the latest ban (even if expired)
         $latestBan = UserBan::where('user_id', $user->id)
             ->latest()
             ->first();
@@ -136,7 +133,13 @@ class GeneralController extends Controller
         }
 
         $user = Cache::remember($cacheKey, 60, function () use ($id) {
-            return User::where('id', $id)->with('privacy')->first();
+            return User::select([
+                'id', 'username', 'description', 'bubble', 'level', 'exp', 'coins', 'role',
+                'rap', 'is_email_verified', 'last_seen_at', 'created_at',
+            ])
+                ->where('id', $id)
+                ->with('privacy')
+                ->first();
         });
 
         if (! $from || ! $user) {
@@ -149,7 +152,10 @@ class GeneralController extends Controller
         $user['friend_status'] = 'none';
 
         $fromId = is_object($from) ? $from->id : $from['id'];
-        $request = UserFriendRequest::where('from_id', $fromId)->where('to_id', $user->id)->orWhere('from_id', $user->id)->where('to_id', $fromId)->first();
+        $request = UserFriendRequest::select(['id', 'from_id', 'to_id'])
+            ->where('from_id', $fromId)->where('to_id', $user->id)
+            ->orWhere('from_id', $user->id)->where('to_id', $fromId)
+            ->first();
         if ($request) {
             if ($request->from_id == $fromId) {
                 $user['friend_status'] = 'sent';
@@ -157,7 +163,10 @@ class GeneralController extends Controller
                 $user['friend_status'] = 'received';
             }
         } else {
-            $friends = UserFriend::where('first_id', $fromId)->where('second_id', $user->id)->orWhere('first_id', $user->id)->where('second_id', $fromId)->first();
+            $friends = UserFriend::select(['id', 'first_id', 'second_id'])
+                ->where('first_id', $fromId)->where('second_id', $user->id)
+                ->orWhere('first_id', $user->id)->where('second_id', $fromId)
+                ->first();
             if ($friends) {
                 $user['friend_status'] = 'friends';
             }
@@ -172,7 +181,7 @@ class GeneralController extends Controller
 
     public function wall($id)
     {
-        $user = User::where('id', $id)->first();
+        $user = User::select(['id'])->where('id', $id)->first();
         if (! $user) {
             return response()->json([
                 'status' => 'error',
@@ -185,16 +194,20 @@ class GeneralController extends Controller
         $query = request()->query();
 
         $data = Cache::remember('user:'.$id.':wall:page:'.$page, 30, function () use ($id) {
-            $paginated = UserProfileWall::where('user_id', $id)->with('author')->orderBy('created_at', 'desc')->paginate(6)->toArray();
+            $paginated = UserProfileWall::select(['id', 'user_id', 'author_id', 'content', 'created_at'])
+                ->where('user_id', $id)
+                ->with('author:id,username')
+                ->orderBy('created_at', 'desc')
+                ->paginate(6);
 
-            return $paginated;
+            return $paginated->toArray();
         });
 
         $wall = new LengthAwarePaginator(
-            $data['items'],
+            $data['data'],
             $data['total'],
-            $data['perPage'],
-            $data['currentPage'],
+            $data['per_page'],
+            $data['current_page'],
             ['path' => $path, 'query' => $query]
         );
 
@@ -204,7 +217,7 @@ class GeneralController extends Controller
     public function postToWall($id, PostToWallRequest $request)
     {
         $data = $request->validated();
-        $user = User::where('id', $id)->first();
+        $user = User::select(['id'])->where('id', $id)->first();
         if (! $user) {
             return response()->json([
                 'status' => 'error',
@@ -245,11 +258,13 @@ class GeneralController extends Controller
         $query = request()->query();
 
         $data = Cache::remember($cacheKey, 30, function () use ($user, $category, $limit, $showDuplicates) {
-            $itemsQuery = MarketplaceItemInventory::where('user_id', $user->id)->whereHas('item', function ($query) {
-                $query->where('moderation_status', 'approved');
-            })
-                ->with('item')
-                ->with('item.category');
+            $itemsQuery = MarketplaceItemInventory::select(['id', 'item_id', 'user_id', 'serial', 'price'])
+                ->where('user_id', $user->id)
+                ->whereHas('item', function ($query) {
+                    $query->where('moderation_status', 'approved');
+                })
+                ->with('item:id,title,texture_path,price,rap,rarity,category_id')
+                ->with('item.category:id,title');
 
             if ($category !== 'all') {
                 $itemsQuery->whereHas('item', function ($query) use ($category) {
@@ -259,8 +274,6 @@ class GeneralController extends Controller
                 });
             }
 
-            // Filter out duplicate items by default (for avatar page)
-            // If show_duplicates is true, show all items including duplicates
             if ($showDuplicates == 0) {
                 $itemsQuery->groupBy('item_id');
             }
@@ -271,10 +284,10 @@ class GeneralController extends Controller
         });
 
         $items = new LengthAwarePaginator(
-            $data['items'],
+            $data['data'],
             $data['total'],
-            $data['perPage'],
-            $data['currentPage'],
+            $data['per_page'],
+            $data['current_page'],
             ['path' => $path, 'query' => $query]
         );
 
@@ -285,8 +298,8 @@ class GeneralController extends Controller
     {
         $user = app('token_user');
 
-        // Find the case inventory item
-        $caseInventory = MarketplaceItemInventory::where('id', $id)
+        $caseInventory = MarketplaceItemInventory::select(['id', 'item_id', 'user_id'])
+            ->where('id', $id)
             ->where('user_id', $user->id)
             ->with('item')
             ->first();
@@ -297,16 +310,14 @@ class GeneralController extends Controller
             ], 404);
         }
 
-        // Check if it's a case (category "Boxes")
         if ($caseInventory->item->category->title !== 'Boxes') {
             return response()->json([
                 'message' => 'This item is not a case',
             ], 422);
         }
 
-        // Get all possible items from this case
         $caseContents = MarketplaceCaseContent::where('case_id', $caseInventory->item_id)
-            ->with('item')
+            ->with('item:id,title,sold_count,price')
             ->get();
 
         if ($caseContents->isEmpty()) {
@@ -315,10 +326,8 @@ class GeneralController extends Controller
             ], 422);
         }
 
-        // Select a random item based on their weights (if any) or just random
         $wonContent = $caseContents->random();
 
-        // Create the won item in user's inventory
         $serial = $wonContent->item->sold_count + 1;
         $wonInventory = MarketplaceItemInventory::create([
             'item_id' => $wonContent->item_id,
@@ -327,10 +336,8 @@ class GeneralController extends Controller
             'price' => $wonContent->item->price,
         ]);
 
-        // Delete the case from inventory
         $caseInventory->delete();
 
-        // Track quest progress for opening cases
         QuestController::incrementProgress($user->id, 'Open Cases', 1);
         QuestController::incrementProgress($user->id, 'Open Many Cases', 1);
         QuestController::incrementProgress($user->id, 'Case Opener', 1);
@@ -349,7 +356,7 @@ class GeneralController extends Controller
         $cacheKey = 'inventory:user:'.$id.':category:'.$category.':limit:'.$limit.':pagination:'.$pagination;
 
         $user = Cache::remember('user:'.$id, 60, function () use ($id) {
-            return User::where('id', $id)->first();
+            return User::select(['id'])->where('id', $id)->first();
         });
 
         if (! $user) {
@@ -359,19 +366,17 @@ class GeneralController extends Controller
             ], 404);
         }
 
-        // if ($user->privacy->who_can_see_inventory == 2) {
-        //     return response()->json(['data' => [], 'total' => 0], 200);
-        // }
-
         $path = request()->url();
         $query = request()->query();
 
-        $data = Cache::remember($cacheKey, 30, function () use ($user, $category, $limit, $pagination) {
-            $itemsQuery = MarketplaceItemInventory::where('user_id', $user->id)->whereHas('item', function ($query) {
-                $query->where('moderation_status', 'approved');
-            })
-                ->with('item')
-                ->with('item.category');
+        $items = Cache::remember($cacheKey, 30, function () use ($user, $category, $limit, $pagination) {
+            $itemsQuery = MarketplaceItemInventory::select(['id', 'item_id', 'user_id', 'serial', 'price'])
+                ->where('user_id', $user->id)
+                ->whereHas('item', function ($query) {
+                    $query->where('moderation_status', 'approved');
+                })
+                ->with('item:id,title,texture_path,price,rap,rarity,category_id')
+                ->with('item.category:id,title');
 
             if ($category != 0) {
                 $itemsQuery->whereHas('item', function ($query) use ($category) {
@@ -380,37 +385,17 @@ class GeneralController extends Controller
             }
 
             if ($pagination) {
-                $paginated = $itemsQuery->paginate($limit);
-
-                return $paginated->toArray();
+                return $itemsQuery->paginate($limit);
             }
 
             if ($limit != 0) {
-                return [
-                    'type' => 'collection',
-                    'items' => $itemsQuery->limit($limit)->get(),
-                ];
+                return $itemsQuery->limit($limit)->get();
             }
 
-            return [
-                'type' => 'collection',
-                'items' => $itemsQuery->get(),
-            ];
+            return $itemsQuery->get();
         });
-        // huh??
-        if ($data['type'] === 'paginated') {
-            $paginated = new LengthAwarePaginator(
-                $data['items'],
-                $data['total'],
-                $data['perPage'],
-                $data['currentPage'],
-                ['path' => $path, 'query' => $query]
-            );
 
-            return response()->json($paginated);
-        }
-
-        return response()->json($data['items']);
+        return response()->json($items);
     }
 
     // Friending
@@ -418,14 +403,17 @@ class GeneralController extends Controller
     {
         $user = app('token_user');
 
-        $requests = UserFriendRequest::where('to_id', $user->id)->with('from')->paginate(5);
+        $requests = UserFriendRequest::select(['id', 'from_id', 'to_id', 'created_at'])
+            ->where('to_id', $user->id)
+            ->with('from:id,username')
+            ->paginate(5);
 
         return response()->json($requests);
     }
 
     public function sendFriendRequest($toId)
     {
-        $to = User::where('id', $toId)->first();
+        $to = User::select(['id'])->where('id', $toId)->first();
         if (! $to) {
             return response()->json([
                 'status' => 'error',
@@ -442,7 +430,9 @@ class GeneralController extends Controller
             ], 403);
         }
 
-        $request = UserFriendRequest::where('from_id', $from->id)->where('to_id', $to->id)->first();
+        $request = UserFriendRequest::select(['id'])
+            ->where('from_id', $from->id)->where('to_id', $to->id)
+            ->first();
         if ($request) {
             return response()->json([
                 'status' => 'error',
@@ -455,7 +445,6 @@ class GeneralController extends Controller
         $request->to_id = $to->id;
         $request->save();
 
-        // Track quest progress for friend requests
         QuestController::incrementProgress($from->id, 'Send Friend Requests', 1);
         QuestController::incrementProgress($from->id, 'Social Butterfly', 1);
 
@@ -464,7 +453,9 @@ class GeneralController extends Controller
 
     public function changeRequestState($id, $state)
     {
-        $request = UserFriendRequest::where('id', $id)->first();
+        $request = UserFriendRequest::select(['id', 'from_id', 'to_id'])
+            ->where('id', $id)
+            ->first();
         $user = app('token_user');
 
         if (! $request) {
@@ -482,7 +473,6 @@ class GeneralController extends Controller
         }
 
         if ($state == 0) {
-            // accept
             $friend = new UserFriend;
             $friend->first_id = $user->id;
             $friend->second_id = $request->from_id;
@@ -492,7 +482,6 @@ class GeneralController extends Controller
 
             return response()->json([], 200);
         } elseif ($state == 1) {
-            // decline, delete request
             $request->delete();
 
             return response()->json([], 200);
@@ -502,7 +491,10 @@ class GeneralController extends Controller
     public function unfriend($id)
     {
         $user = app('token_user');
-        $friend = UserFriend::where('first_id', $user->id)->where('second_id', $id)->orWhere('first_id', $id)->where('second_id', $user->id)->first();
+        $friend = UserFriend::select(['id'])
+            ->where('first_id', $user->id)->where('second_id', $id)
+            ->orWhere('first_id', $id)->where('second_id', $user->id)
+            ->first();
         if ($friend) {
             $friend->delete();
         }
@@ -514,54 +506,38 @@ class GeneralController extends Controller
     {
         $page = request()->query('page', 1);
         $perPage = 9;
-        $path = request()->url();
-        $query = request()->query();
 
-        $data = Cache::remember('leaderboard:page:'.$page.':perPage:'.$perPage, 60, function () use ($page, $perPage) {
-            $allUsers = User::all()->sortByDesc(function ($user) {
-                return $user->final_rap;
-            })->values();
+        $data = Cache::remember("leaderboard:page:{$page}", 60, function () use ($page, $perPage) {
+            $paginator = User::select(['id', 'username', 'bubble', 'last_seen_at', 'final_rap', 'item_count'])
+                ->orderBy('final_rap', 'desc')
+                ->paginate($perPage, ['*'], 'page', $page);
 
-            $total = $allUsers->count();
-
-            $rankedUsers = $allUsers->map(function ($user, $index) {
+            $startingRank = ($page - 1) * $perPage + 1;
+            
+            $items = collect($paginator->items())->map(function ($user, $index) use ($startingRank) {
                 return [
-                    'rank' => $index + 1,
+                    'rank' => $startingRank + $index,
                     'id' => $user->id,
                     'username' => $user->username,
                     'final_rap' => $user->final_rap,
-                    'bubble' => $user->bubble,
                     'item_count' => $user->item_count,
-                    'is_online' => $user->is_online,
+                    'bubble' => $user->bubble,
                     'last_seen_at' => $user->last_seen_at,
                 ];
-            });
-
-            $paginated = new LengthAwarePaginator(
-                $rankedUsers->forPage($page, $perPage)->values(),
-                $total,
-                $perPage,
-                $page,
-                ['path' => request()->url(), 'query' => request()->query()]
-            );
+            })->values();
 
             return [
-                'items' => $paginated->items(),
-                'total' => $paginated->total(),
-                'perPage' => $paginated->perPage(),
-                'currentPage' => $paginated->currentPage(),
-                'lastPage' => $paginated->lastPage(),
-                'path' => request()->url(),
-                'query' => request()->query(),
+                'items' => $items->all(),
+                'total' => $paginator->total(),
             ];
         });
 
-        $paginated = new LengthAwarePaginator(
+        $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
             $data['items'],
             $data['total'],
-            $data['perPage'],
-            $data['currentPage'],
-            ['path' => $path, 'query' => $query]
+            $perPage,
+            $page,
+            ['path' => request()->url(), 'query' => request()->query()]
         );
 
         return response()->json($paginated);
@@ -572,9 +548,10 @@ class GeneralController extends Controller
     public function newestUsers()
     {
         $users = Cache::remember('newest_users', 60, function () {
-            return User::orderBy('created_at', 'desc')
+            return User::select(['id', 'username', 'created_at'])
+                ->orderBy('created_at', 'desc')
                 ->limit(10)
-                ->get(['id', 'username', 'created_at']);
+                ->get();
         });
 
         return response()->json([
@@ -591,10 +568,14 @@ class GeneralController extends Controller
         $page = request()->query('page', 1);
         $perPage = 20;
 
-        $cacheKey = 'browse_users:search:'.md5($search).':sort:'.$sortBy.':page:'.$page;
+        if ($search) {
+            $cacheKey = 'browse_users:search:'.md5($search).':sort:'.$sortBy.':page:'.$page;
+        } else {
+            $cacheKey = 'browse_users:all:sort:'.$sortBy.':page:'.$page;
+        }
 
         $users = Cache::remember($cacheKey, 120, function () use ($search, $sortBy, $perPage) {
-            $query = User::query();
+            $query = User::select(['id', 'username', 'bubble', 'rap', 'created_at', 'last_seen_at']);
 
             if ($search) {
                 $query->where('username', 'like', "%{$search}%");
@@ -602,7 +583,7 @@ class GeneralController extends Controller
 
             $totalCount = $query->count();
 
-            $usersCollection = $query->with('inventory.item')->get();
+            $usersCollection = $query->get();
 
             switch ($sortBy) {
                 case 'oldest':
@@ -621,27 +602,27 @@ class GeneralController extends Controller
 
             $currentPageItems = $usersCollection->slice(0, $perPage)->values();
 
-            return new LengthAwarePaginator(
-                $currentPageItems,
-                $totalCount,
-                $perPage,
-                1,
-                ['path' => request()->url(), 'query' => request()->query()]
-            );
+            return [
+                'items' => $currentPageItems,
+                'total' => $totalCount,
+                'perPage' => $perPage,
+                'currentPage' => 1,
+            ];
         });
 
-        // Re-set path/query for pagination links because the cached paginator retains the cached request context
-        if ($users instanceof LengthAwarePaginator) {
-            $users->setPath(request()->url());
-            $users->appends(request()->query());
-            // Ensure page is correct after retrieving from cache
-            $pageItems = $users->getCollection()->slice(($page - 1) * $perPage, $perPage)->values();
-            $users->setCollection($pageItems);
-            $users->withPath(request()->url());
-            $users->appends(request()->query());
-        }
+        $paginated = new LengthAwarePaginator(
+            $users['items'],
+            $users['total'],
+            $users['perPage'],
+            $users['currentPage'],
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
 
-        return response()->json($users);
+        // Ensure page is correct after retrieving from cache
+        $pageItems = $paginated->getCollection()->slice(($page - 1) * $perPage, $perPage)->values();
+        $paginated->setCollection($pageItems);
+
+        return response()->json($paginated);
     }
 
     // Petitions
@@ -655,10 +636,19 @@ class GeneralController extends Controller
         $userId = $user ? (is_object($user) ? $user->id : $user['id']) : 'guest';
         $cacheKey = 'petitions:page:'.$page.':perPage:'.$perPage.':user:'.$userId;
 
-        $petitions = Cache::remember($cacheKey, 60, function () use ($perPage, $page) {
-            return Petition::with('user')
+        $petitions = Cache::remember($cacheKey, 60, function () use ($perPage, $page, $user) {
+            $paginated = Petition::select(['id', 'user_id', 'title', 'description', 'type', 'upvotes', 'downvotes', 'approved', 'created_at'])
+                ->with('user:id,username')
                 ->orderBy('created_at', 'desc')
                 ->paginate($perPage, ['*'], 'page', $page);
+
+            $paginated->getCollection()->transform(function ($petition) use ($user) {
+                $petition->user_vote = $petition->votes->where('user_id', $user->id)->first()?->vote ?? null;
+
+                return $petition;
+            });
+
+            return $paginated;
         });
 
         $petitions->getCollection()->transform(function ($petition) use ($user) {
@@ -688,30 +678,31 @@ class GeneralController extends Controller
     public function votePetition($id)
     {
         $user = app('token_user');
-        $petition = Petition::find($id);
+        $petition = Petition::select(['id', 'user_id', 'upvotes', 'downvotes'])
+            ->where('id', $id)
+            ->first();
 
         if (! $petition) {
             return response()->json(['message' => 'Petition not found'], 404);
         }
 
-        $vote = request()->input('vote'); // 'upvote' or 'downvote'
-        $voteColumn = $vote.'s'; // 'upvotes' or 'downvotes'
-        $existingVote = PetitionVote::where('petition_id', $id)->where('user_id', $user->id)->first();
+        $vote = request()->input('vote');
+        $voteColumn = $vote.'s';
+        $existingVote = PetitionVote::select(['id', 'vote'])
+            ->where('petition_id', $id)->where('user_id', $user->id)
+            ->first();
 
         if ($existingVote) {
             if ($existingVote->vote === $vote) {
-                // Remove vote
                 $existingVote->delete();
                 $petition->decrement($voteColumn);
             } else {
-                // Change vote
                 $oldVoteColumn = $existingVote->vote.'s';
                 $existingVote->update(['vote' => $vote]);
                 $petition->decrement($oldVoteColumn);
                 $petition->increment($voteColumn);
             }
         } else {
-            // Add new vote
             PetitionVote::create([
                 'petition_id' => $id,
                 'user_id' => $user->id,
@@ -731,7 +722,9 @@ class GeneralController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $petition = Petition::find($id);
+        $petition = Petition::select(['id', 'user_id'])
+            ->where('id', $id)
+            ->first();
         if (! $petition) {
             return response()->json(['message' => 'Petition not found'], 404);
         }
@@ -745,7 +738,9 @@ class GeneralController extends Controller
 
     public function indexRoadmap()
     {
-        $items = RoadmapItem::orderBy('sort_order')->get();
+        $items = RoadmapItem::select(['id', 'title', 'description', 'status', 'phase', 'sort_order', 'created_at'])
+            ->orderBy('sort_order')
+            ->get();
 
         return response()->json($items);
     }
@@ -814,9 +809,10 @@ class GeneralController extends Controller
     {
         $user = app('token_user');
 
-        $wearing = UserWearing::where('user_id', $user->id)
-            ->with('item')
-            ->with('item.category')
+        $wearing = UserWearing::select(['id', 'user_id', 'item_id'])
+            ->where('user_id', $user->id)
+            ->with('item:id,title,texture_path,price,rap,rarity,category_id')
+            ->with('item.category:id,title')
             ->get();
 
         return response()->json(['data' => $wearing]);
@@ -847,7 +843,8 @@ class GeneralController extends Controller
     {
         $user = app('token_user');
 
-        $inventory = MarketplaceItemInventory::where('id', $inventoryId)
+        $inventory = MarketplaceItemInventory::select(['id', 'item_id', 'user_id'])
+            ->where('id', $inventoryId)
             ->where('user_id', $user->id)
             ->with('item')
             ->first();
@@ -858,8 +855,8 @@ class GeneralController extends Controller
             ], 404);
         }
 
-        // Check if already wearing
-        $existing = UserWearing::where('user_id', $user->id)
+        $existing = UserWearing::select(['id'])
+            ->where('user_id', $user->id)
             ->where('item_id', $inventory->item_id)
             ->first();
 
@@ -881,7 +878,8 @@ class GeneralController extends Controller
     {
         $user = app('token_user');
 
-        $inventory = MarketplaceItemInventory::where('id', $inventoryId)
+        $inventory = MarketplaceItemInventory::select(['id', 'item_id', 'user_id'])
+            ->where('id', $inventoryId)
             ->where('user_id', $user->id)
             ->first();
 
@@ -928,7 +926,6 @@ class GeneralController extends Controller
         $renderer = new PythonRenderHelper;
         $renderer->loadBlend(config('app.renderer_directory').'/scene.blend');
 
-        // Color mapping for avatar parts
         $colorMap = [
             'head' => $colors->head_color,
             'torso' => $colors->torso_color,
@@ -938,13 +935,11 @@ class GeneralController extends Controller
             'right_leg' => $colors->right_leg_color,
         ];
 
-        // Process each worn item
         $hasFace = false;
         foreach ($wearing as $wearingItem) {
             $item = $wearingItem->item;
             $category = $item->category;
 
-            // Load the 3D model if the category has one
             if ($category->has_model) {
                 $modelPath = config('app.renderer_directory').'/'.$item->model_path;
                 $renderer->loadObj($item->id, $modelPath, $category->has_texture);
@@ -974,7 +969,6 @@ class GeneralController extends Controller
             $renderer->selectAndColor($part, $colorMap[$part]);
         }
 
-        // Generate a unique hash for the render
         $hash = md5($user->id.time());
         $outputPath = config('app.storage_directory').'/avatars';
 
@@ -989,10 +983,7 @@ class GeneralController extends Controller
             $output = '';
             $code = 0;
             exec(config('app.blender_path').' -b -P '.config('app.renderer_directory')."/python/$hash.py 2>&1", $output, $code);
-            // if(!config('app.renderer_save_python_files'))
-            //     unlink(config('app.renderer_main_path')."/python/$name.py");
 
-            // return response()->json(["image" => config("app.renderer_display_path")."/avatars/$user->avatar_url.png"]);
             return response()->json([
                 'data' => [
                     'render_url' => "/{$user->id}.png",
@@ -1010,7 +1001,7 @@ class GeneralController extends Controller
         $user = app('token_user');
         $data = request()->all();
         $request = Http::withoutVerifying()->withHeaders(['Accept' => 'application/json', 'Content-Type' => 'application/json', 'X-Api-Key' => env('PAYMENT_API_KEY', null)])
-            ->post('https://gate.lava.top/api/v3/invoice', ['offerId' => env('PAYMENT_OFFER_ID', null), 'amount' => $data['amount'], 'currency' => 'USD', 'email' => $user->email, "paymentProvider"=>"PAYPAL"]);
+            ->post('https://gate.lava.top/api/v3/invoice', ['offerId' => env('PAYMENT_OFFER_ID', null), 'amount' => $data['amount'], 'currency' => 'USD', 'email' => $user->email]);
 
         $data = $request->json();
 

@@ -6,12 +6,13 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 #[Fillable(['username', 'email', 'password', 'coins', 'is_email_verified'])]
 #[Hidden(['password', 'email', 'last_currency_at'])]
 class User extends Model
 {
-    protected $appends = ['is_online', 'final_rap', 'leaderboard_rank', 'leaderboard_percentile', 'item_count'];
+    protected $appends = ['is_online', 'leaderboard_rank', 'leaderboard_percentile', 'item_count'];
 
     public function getIsOnlineAttribute()
     {
@@ -24,20 +25,37 @@ class User extends Model
         return $last->greaterThanOrEqualTo(Carbon::now()->subSeconds(10));
     }
 
-    public function getFinalRapAttribute()
+    // public function getFinalRapAttribute()
+    // {
+    //     $itemsOwned = MarketplaceItemInventory::where('user_id', $this->id)->get();
+    //     $rap = 0;
+
+    //     foreach ($itemsOwned as $inv) {
+    //         if (! $inv->item->is_limited) {
+    //             continue;
+    //         } else {
+    //             $rap = $rap + $inv->item->final_rap;
+    //         }
+    //     }
+
+    //     return $rap;
+    // }
+
+    public function recalculateStats()
     {
-        $itemsOwned = MarketplaceItemInventory::where('user_id', $this->id)->get();
-        $rap = 0;
+        $totalRap = DB::table('marketplace_item_inventories')
+            ->join('marketplace_items', 'marketplace_item_inventories.item_id', '=', 'marketplace_items.id')
+            ->where('marketplace_item_inventories.user_id', $this->id)
+            ->where('marketplace_items.is_limited', true)
+            ->sum('marketplace_items.rap');
 
-        foreach ($itemsOwned as $inv) {
-            if (! $inv->item->is_limited) {
-                continue;
-            } else {
-                $rap = $rap + $inv->item->final_rap;
-            }
-        }
+        $totalItems = DB::table('marketplace_item_inventories')
+            ->where('user_id', $this->id)
+            ->count();
 
-        return $rap;
+        $this->final_rap = $totalRap;
+        $this->item_count = $totalItems;
+        $this->save();
     }
 
     public function getLeaderboardPercentileAttribute(): ?float
