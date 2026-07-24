@@ -20,6 +20,7 @@ use App\Models\UserProfileWall;
 use App\Models\UserWearing;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
 class GeneralController extends Controller
@@ -356,7 +357,7 @@ class GeneralController extends Controller
         $cacheKey = 'inventory:user:'.$id.':category:'.$category.':limit:'.$limit.':pagination:'.$pagination;
 
         $user = Cache::remember('user:'.$id, 60, function () use ($id) {
-            return User::select(['id'])->where('id', $id)->first();
+            return User::select(['id'])->where('id', $id)->first()->toArray();
         });
 
         if (! $user) {
@@ -371,11 +372,11 @@ class GeneralController extends Controller
 
         $items = Cache::remember($cacheKey, 30, function () use ($user, $category, $limit, $pagination) {
             $itemsQuery = MarketplaceItemInventory::select(['id', 'item_id', 'user_id', 'serial', 'price'])
-                ->where('user_id', $user->id)
+                ->where('user_id', $user['id'])
                 ->whereHas('item', function ($query) {
                     $query->where('moderation_status', 'approved');
                 })
-                ->with('item:id,title,texture_path,price,rap,rarity,category_id')
+                ->with('item:id,title,price,rarity,category_id')
                 ->with('item.category:id,title');
 
             if ($category != 0) {
@@ -619,30 +620,32 @@ class GeneralController extends Controller
 
         $user = app('token_user');
         $userId = $user ? (is_object($user) ? $user->id : $user['id']) : 'guest';
-        $cacheKey = 'petitions:page:'.$page.':perPage:'.$perPage.':user:'.$userId;
+        $cacheKey = 'petitions:page:'.$page.':perPage:'.$perPage;
 
-        $petitions = Cache::remember($cacheKey, 60, function () use ($perPage, $page, $user) {
-            $paginated = Petition::select(['id', 'user_id', 'title', 'description', 'type', 'upvotes', 'downvotes', 'approved', 'created_at'])
+        $data = Cache::remember($cacheKey, 60, function () use ($perPage, $page) {
+            return Petition::select(['id', 'user_id', 'title', 'description', 'type', 'upvotes', 'downvotes', 'approved', 'created_at'])
                 ->with('user:id,username')
                 ->orderBy('created_at', 'desc')
-                ->paginate($perPage, ['*'], 'page', $page);
-
-            $paginated->getCollection()->transform(function ($petition) use ($user) {
-                $petition->user_vote = $petition->votes->where('user_id', $user->id)->first()?->vote ?? null;
-
-                return $petition;
-            });
-
-            return $paginated->toArray();
+                ->paginate($perPage, ['*'], 'page', $page)
+                ->toArray();
         });
 
-        $petitions->getCollection()->transform(function ($petition) use ($user) {
-            $petition->user_vote = $petition->votes->where('user_id', $user->id)->first()?->vote ?? null;
+        $userVotes = [];
+        if ($userId && !empty($data['data'])) {
+            $petitionIds = collect($data['data'])->pluck('id')->all();
+            
+            $userVotes = DB::table('petition_votes')
+                ->where('user_id', $userId)
+                ->whereIn('petition_id', $petitionIds)
+                ->pluck('vote', 'petition_id')
+                ->all();
+        }
 
-            return $petition;
-        });
+        foreach ($data['data'] as &$petition) {
+            $petition['user_vote'] = $userVotes[$petition['id']] ?? null;
+        }
 
-        return response()->json($petitions);
+        return response()->json($data);
     }
 
     public function createPetition()
@@ -656,6 +659,10 @@ class GeneralController extends Controller
             'description' => $data['description'],
             'type' => $data['type'],
         ]);
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '') . "petitions:%")
+            ->delete();
 
         return response()->json(['data' => $petition->load('user')], 201);
     }
