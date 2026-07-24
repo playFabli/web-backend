@@ -69,7 +69,7 @@ class GeneralController extends Controller
                 ->where('is_deleted', false)
                 ->with('user')
                 ->with('category')
-                ->first();
+                ->first()->toArray();
         });
 
         if (! $thread) {
