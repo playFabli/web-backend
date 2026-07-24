@@ -281,9 +281,9 @@ class GeneralController extends Controller
         $query = request()->query('query', '');
 
         $cacheKey = 'marketplace:items:categories:'.md5(implode(',', $categories)).":price:{$priceMin}:{$priceMax}:rap:{$rapMin}:{$rapMax}:query:".md5($query);
-
         $items = Cache::remember($cacheKey, 60, function () use ($categories, $priceMin, $priceMax, $rapMin, $rapMax, $query) {
-            return MarketplaceItem::whereIn('category_id', $categories)
+            // 1. Fetch the paginator object
+            $paginator = MarketplaceItem::whereIn('category_id', $categories)
                 ->where('is_deleted', false)
                 ->where('moderation_status', 'approved')
                 ->whereBetween('price', [$priceMin, $priceMax])
@@ -292,11 +292,13 @@ class GeneralController extends Controller
                     $q->where('title', 'like', "%$query%")
                         ->orWhere('description', 'like', "%$query%");
                 })
-                ->with('user')
-                ->with('category')
+                ->with(['user', 'category']) // Combined for better readability
                 ->orderBy('created_at', 'desc')
                 ->paginate(12);
+
+            return $paginator->toArray();
         });
+
 
         // Track quest progress for visiting marketplace
         $user = app('token_user');
@@ -508,7 +510,7 @@ class GeneralController extends Controller
 
         $page = request()->query('page', 1);
         $owners = Cache::remember("marketplace:item:{$id}:owners:page:{$page}", 60, function () use ($id) {
-            return MarketplaceItemInventory::where('item_id', $id)->with('user')->paginate(5);
+            return MarketplaceItemInventory::where('item_id', $id)->with('user')->paginate(5)->toArray();
         });
 
         return response()->json($owners, 200);
@@ -530,7 +532,7 @@ class GeneralController extends Controller
 
         $page = request()->query('page', 1);
         $requests = Cache::remember("marketplace:item:{$id}:sell_requests:page:{$page}", 60, function () use ($id) {
-            return MarketplaceSellRequest::where('item_id', $id)->with('inventory')->with('user')->paginate(5);
+            return MarketplaceSellRequest::where('item_id', $id)->with('inventory')->with('user')->paginate(5)->toArray();
         });
 
         return response()->json($requests, 200);

@@ -43,7 +43,7 @@ class GeneralController extends Controller
                     ->with('category')
                     ->orderBy('is_pinned', 'desc')
                     ->orderBy('created_at', 'desc')
-                    ->paginate(9);
+                    ->paginate(9)->toArray();
             }
 
             return ForumThread::where('category_id', $categoryId)
@@ -56,7 +56,7 @@ class GeneralController extends Controller
                 ->with('category')
                 ->orderBy('is_pinned', 'desc')
                 ->orderBy('created_at', 'desc')
-                ->paginate(9);
+                ->paginate(9)->toArray();
         });
 
         return response()->json($threads, 200);
@@ -106,17 +106,9 @@ class GeneralController extends Controller
                 ->where('is_deleted', false)
                 ->with('user')
                 ->orderBy('created_at', 'asc')
-                ->paginate(9);
+                ->paginate(9)->toArray();
 
-            return [
-                'items' => $paginated->items(),
-                'total' => $paginated->total(),
-                'perPage' => $paginated->perPage(),
-                'currentPage' => $paginated->currentPage(),
-                'lastPage' => $paginated->lastPage(),
-                'path' => request()->url(),
-                'query' => request()->query(),
-            ];
+            return $paginated;
         });
 
         $replies = new LengthAwarePaginator(

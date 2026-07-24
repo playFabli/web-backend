@@ -185,17 +185,9 @@ class GeneralController extends Controller
         $query = request()->query();
 
         $data = Cache::remember('user:'.$id.':wall:page:'.$page, 30, function () use ($id) {
-            $paginated = UserProfileWall::where('user_id', $id)->with('author')->orderBy('created_at', 'desc')->paginate(6);
+            $paginated = UserProfileWall::where('user_id', $id)->with('author')->orderBy('created_at', 'desc')->paginate(6)->toArray();
 
-            return [
-                'items' => $paginated->items(),
-                'total' => $paginated->total(),
-                'perPage' => $paginated->perPage(),
-                'currentPage' => $paginated->currentPage(),
-                'lastPage' => $paginated->lastPage(),
-                'path' => request()->url(),
-                'query' => request()->query(),
-            ];
+            return $paginated;
         });
 
         $wall = new LengthAwarePaginator(
@@ -275,15 +267,7 @@ class GeneralController extends Controller
 
             $paginated = $itemsQuery->paginate($limit);
 
-            return [
-                'items' => $paginated->items(),
-                'total' => $paginated->total(),
-                'perPage' => $paginated->perPage(),
-                'currentPage' => $paginated->currentPage(),
-                'lastPage' => $paginated->lastPage(),
-                'path' => request()->url(),
-                'query' => request()->query(),
-            ];
+            return $paginated->toArray();
         });
 
         $items = new LengthAwarePaginator(
@@ -398,16 +382,7 @@ class GeneralController extends Controller
             if ($pagination) {
                 $paginated = $itemsQuery->paginate($limit);
 
-                return [
-                    'type' => 'paginated',
-                    'items' => $paginated->items(),
-                    'total' => $paginated->total(),
-                    'perPage' => $paginated->perPage(),
-                    'currentPage' => $paginated->currentPage(),
-                    'lastPage' => $paginated->lastPage(),
-                    'path' => request()->url(),
-                    'query' => request()->query(),
-                ];
+                return $paginated->toArray();
             }
 
             if ($limit != 0) {
@@ -422,7 +397,7 @@ class GeneralController extends Controller
                 'items' => $itemsQuery->get(),
             ];
         });
-
+        // huh??
         if ($data['type'] === 'paginated') {
             $paginated = new LengthAwarePaginator(
                 $data['items'],
