@@ -249,6 +249,125 @@ class GeneralController extends Controller
         ], 200);
     }
 
+    public function recalculateUserStats($id)
+    {
+        $admin = $this->getAdmin();
+        $user = User::where('id', $id)->first();
+        if (! $user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User not found',
+            ], 404);
+        }
+
+        $user->recalculateStats();
+
+        if ($admin) {
+            $this->log($admin->id, $user->id, 'Recalculated user stats');
+        }
+
+        return response()->json([
+            'data' => [
+                'final_rap' => $user->final_rap,
+                'item_count' => $user->item_count,
+            ],
+        ], 200);
+    }
+
+    public function renderUser($id)
+    {
+        $admin = $this->getAdmin();
+        $user = User::where('id', $id)->first();
+        if (! $user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User not found',
+            ], 404);
+        }
+
+        $wearing = $user->wearing;
+        $colors = $user->avatarColors;
+
+        $renderer = new PythonRenderHelper;
+        $renderer->loadBlend(config('app.renderer_directory').'/scene.blend');
+
+        $colorMap = [
+            'head' => $colors->head_color,
+            'torso' => $colors->torso_color,
+            'left_arm' => $colors->left_arm_color,
+            'right_arm' => $colors->right_arm_color,
+            'left_leg' => $colors->left_leg_color,
+            'right_leg' => $colors->right_leg_color,
+        ];
+
+        $hasFace = false;
+        foreach ($wearing as $wearingItem) {
+            $item = $wearingItem->item;
+            $category = $item->category;
+
+            if ($category->has_model) {
+                $modelPath = config('app.renderer_directory').'/'.$item->model_path;
+                $renderer->loadObj($item->id, $modelPath, $category->has_texture);
+
+                $texturePath = config('app.renderer_directory').'/'.$item->texture_path;
+                $renderer->addTexture($item->id, $item->id.'_tex', $texturePath);
+            }
+
+            if ($category->has_texture && $item->texture_path) {
+                $parts = $category->parts_affected_array;
+                $texturePath = config('app.renderer_directory').'/'.$item->texture_path;
+                foreach ($parts as $part) {
+                    if ($part === 'head') {
+                        $hasFace = true;
+                    }
+                    $renderer->addTexture($part, $item->id.'_tex', $texturePath);
+                }
+            }
+        }
+
+        if (! $hasFace) {
+            $renderer->addTexture('head', 'default_face', config('app.renderer_directory').'/textures/def_face.png');
+        }
+
+        $parts = ['head', 'left_arm', 'right_arm', 'torso', 'right_leg', 'left_leg'];
+        foreach ($parts as $part) {
+            $renderer->selectAndColor($part, $colorMap[$part]);
+        }
+
+        $hash = md5($user->id.time());
+        $outputPath = config('app.storage_directory').'/avatars';
+
+        $renderer->focus('all');
+        $renderer->save($user->id, $outputPath);
+
+        $outputPath = config('app.storage_directory').'/headshots';
+        $renderer->focus(['head', 'torso']);
+        $renderer->save($user->id, $outputPath);
+
+        if (file_put_contents(config('app.renderer_directory')."/python/$hash.py", $renderer->getScript())) {
+            $output = '';
+            $code = 0;
+            exec(config('app.blender_path').' -b -P '.config('app.renderer_directory')."/python/$hash.py 2>&1", $output, $code);
+
+            if ($admin) {
+                $this->log($admin->id, $user->id, 'Rendered user avatar');
+            }
+
+            return response()->json([
+                'data' => [
+                    'render_url' => "/{$user->id}.png",
+                    'hash' => $hash,
+                    'output' => $output,
+                    'code' => $code,
+                ],
+            ], 200);
+        }
+
+        return response()->json([
+            'message' => 'Failed to render user avatar',
+        ], 500);
+    }
+
     // ---------- Items / Assets ----------
 
     public function assets(Request $request)

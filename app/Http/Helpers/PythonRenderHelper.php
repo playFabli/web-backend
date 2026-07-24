@@ -12,6 +12,10 @@ import bpy
 import math
 from mathutils import Euler
 
+bpy.context.scene.render.engine = 'BLENDER_RENDER'
+bpy.context.scene.render.threads_mode = 'FIXED'
+bpy.context.scene.render.threads = 1
+
 def hex_to_rgb(value):
     """Convert hex color to RGB tuple with gamma correction."""
     gamma = 2.05

@@ -189,6 +189,9 @@ class TradeController extends Controller
             $from->save();
             $user->save();
 
+            $from->recalculateStats();
+            $user->recalculateStats();
+
             $trade->status = 1;
             $trade->save();
 

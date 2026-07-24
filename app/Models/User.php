@@ -43,11 +43,16 @@ class User extends Model
 
     public function recalculateStats()
     {
-        $totalRap = DB::table('marketplace_item_inventories')
-            ->join('marketplace_items', 'marketplace_item_inventories.item_id', '=', 'marketplace_items.id')
-            ->where('marketplace_item_inventories.user_id', $this->id)
-            ->where('marketplace_items.is_limited', true)
-            ->sum('marketplace_items.rap');
+        MarketplaceItemInventory::where('user_id', $this->id)
+        ->whereHas('item', function ($query) {
+            $query->where('is_limited', true);
+        })
+        ->with('item')
+        ->chunkById(100, function ($inventories) use (&$totalRap) {
+            foreach ($inventories as $inv) {
+                $totalRap += $inv->item->final_rap;
+            }
+        });
 
         $totalItems = DB::table('marketplace_item_inventories')
             ->where('user_id', $this->id)

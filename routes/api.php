@@ -48,6 +48,10 @@ Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAdmin::class]]
     Route::post('/users/{id}/unban', [GeneralController::class, 'unbanUser']);
     Route::get('/users/{id}/bans', [GeneralController::class, 'userBans']);
 
+    // User Actions
+    Route::post('/users/{id}/recalculate-stats', [GeneralController::class, 'recalculateUserStats']);
+    Route::post('/users/{id}/render', [GeneralController::class, 'renderUser']);
+
     // Assets
     Route::get('/assets', [GeneralController::class, 'assets']);
     Route::get('/assets/{id}', [GeneralController::class, 'asset']);
@@ -110,10 +114,10 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
             Route::post('/privacy', [SettingsController::class, 'updatePrivacySettings']);
         });
 
+        Route::post('/unfriend/{id}', [App\Http\Controllers\User\GeneralController::class, 'unfriend']);
         Route::group(['prefix' => 'friend'], function () {
             Route::get('/requests', [App\Http\Controllers\User\GeneralController::class, 'requests']);
             Route::post('/change/{id}/{state}', [App\Http\Controllers\User\GeneralController::class, 'changeRequestState']);
-            Route::post('/unfriend/{id}', [App\Http\Controllers\User\GeneralController::class, 'unfriend']);
             Route::post('/{id}', [App\Http\Controllers\User\GeneralController::class, 'sendFriendRequest']);
         });
 
