@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Mail\PasswordResetMail;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 class AuthController extends Controller
 {
@@ -157,7 +158,7 @@ class AuthController extends Controller
         ]);
 
         $reset = PasswordResetToken::where('token', $data['token'])->first();
-        if (!$reset || $reset->expires_at->isPast()) {
+        if (!$reset || Carbon::parse($reset->expires_at)->isPast()) {
             return response()->json(['message' => 'Invalid or expired token.'], 422);
         }
 
