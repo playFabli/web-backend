@@ -181,9 +181,30 @@ class GeneralController extends Controller
         }
 
         $page = request()->query('page', 1);
-        $wall = Cache::remember('user:'.$id.':wall:page:'.$page, 30, function () use ($id) {
-            return UserProfileWall::where('user_id', $id)->with('author')->orderBy('created_at', 'desc')->paginate(6);
+        $path = request()->url();
+        $query = request()->query();
+
+        $data = Cache::remember('user:'.$id.':wall:page:'.$page, 30, function () use ($id) {
+            $paginated = UserProfileWall::where('user_id', $id)->with('author')->orderBy('created_at', 'desc')->paginate(6);
+
+            return [
+                'items' => $paginated->items(),
+                'total' => $paginated->total(),
+                'perPage' => $paginated->perPage(),
+                'currentPage' => $paginated->currentPage(),
+                'lastPage' => $paginated->lastPage(),
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ];
         });
+
+        $wall = new LengthAwarePaginator(
+            $data['items'],
+            $data['total'],
+            $data['perPage'],
+            $data['currentPage'],
+            ['path' => $path, 'query' => $query]
+        );
 
         return response()->json($wall);
     }
@@ -228,7 +249,10 @@ class GeneralController extends Controller
 
         $cacheKey = 'inventory:user:'.$user->id.':category:'.$category.':page:'.$page.':limit:'.$limit.':dup:'.$showDuplicates;
 
-        $items = Cache::remember($cacheKey, 30, function () use ($user, $category, $limit, $showDuplicates) {
+        $path = request()->url();
+        $query = request()->query();
+
+        $data = Cache::remember($cacheKey, 30, function () use ($user, $category, $limit, $showDuplicates) {
             $itemsQuery = MarketplaceItemInventory::where('user_id', $user->id)->whereHas('item', function ($query) {
                 $query->where('moderation_status', 'approved');
             })
@@ -249,8 +273,26 @@ class GeneralController extends Controller
                 $itemsQuery->groupBy('item_id');
             }
 
-            return $itemsQuery->paginate($limit);
+            $paginated = $itemsQuery->paginate($limit);
+
+            return [
+                'items' => $paginated->items(),
+                'total' => $paginated->total(),
+                'perPage' => $paginated->perPage(),
+                'currentPage' => $paginated->currentPage(),
+                'lastPage' => $paginated->lastPage(),
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ];
         });
+
+        $items = new LengthAwarePaginator(
+            $data['items'],
+            $data['total'],
+            $data['perPage'],
+            $data['currentPage'],
+            ['path' => $path, 'query' => $query]
+        );
 
         return response()->json($items);
     }
@@ -337,7 +379,10 @@ class GeneralController extends Controller
         //     return response()->json(['data' => [], 'total' => 0], 200);
         // }
 
-        $items = Cache::remember($cacheKey, 30, function () use ($user, $category, $limit, $pagination) {
+        $path = request()->url();
+        $query = request()->query();
+
+        $data = Cache::remember($cacheKey, 30, function () use ($user, $category, $limit, $pagination) {
             $itemsQuery = MarketplaceItemInventory::where('user_id', $user->id)->whereHas('item', function ($query) {
                 $query->where('moderation_status', 'approved');
             })
@@ -351,17 +396,46 @@ class GeneralController extends Controller
             }
 
             if ($pagination) {
-                return $itemsQuery->paginate($limit);
+                $paginated = $itemsQuery->paginate($limit);
+
+                return [
+                    'type' => 'paginated',
+                    'items' => $paginated->items(),
+                    'total' => $paginated->total(),
+                    'perPage' => $paginated->perPage(),
+                    'currentPage' => $paginated->currentPage(),
+                    'lastPage' => $paginated->lastPage(),
+                    'path' => request()->url(),
+                    'query' => request()->query(),
+                ];
             }
 
             if ($limit != 0) {
-                return $itemsQuery->limit($limit)->get();
+                return [
+                    'type' => 'collection',
+                    'items' => $itemsQuery->limit($limit)->get(),
+                ];
             }
 
-            return $itemsQuery->get();
+            return [
+                'type' => 'collection',
+                'items' => $itemsQuery->get(),
+            ];
         });
 
-        return response()->json($items);
+        if ($data['type'] === 'paginated') {
+            $paginated = new LengthAwarePaginator(
+                $data['items'],
+                $data['total'],
+                $data['perPage'],
+                $data['currentPage'],
+                ['path' => $path, 'query' => $query]
+            );
+
+            return response()->json($paginated);
+        }
+
+        return response()->json($data['items']);
     }
 
     // Friending
@@ -465,8 +539,10 @@ class GeneralController extends Controller
     {
         $page = request()->query('page', 1);
         $perPage = 9;
+        $path = request()->url();
+        $query = request()->query();
 
-        return Cache::remember('leaderboard:page:'.$page.':perPage:'.$perPage, 60, function () use ($page, $perPage) {
+        $data = Cache::remember('leaderboard:page:'.$page.':perPage:'.$perPage, 60, function () use ($page, $perPage) {
             $allUsers = User::all()->sortByDesc(function ($user) {
                 return $user->final_rap;
             })->values();
@@ -494,8 +570,26 @@ class GeneralController extends Controller
                 ['path' => request()->url(), 'query' => request()->query()]
             );
 
-            return $paginated;
+            return [
+                'items' => $paginated->items(),
+                'total' => $paginated->total(),
+                'perPage' => $paginated->perPage(),
+                'currentPage' => $paginated->currentPage(),
+                'lastPage' => $paginated->lastPage(),
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ];
         });
+
+        $paginated = new LengthAwarePaginator(
+            $data['items'],
+            $data['total'],
+            $data['perPage'],
+            $data['currentPage'],
+            ['path' => $path, 'query' => $query]
+        );
+
+        return response()->json($paginated);
     }
 
     // Newest Users

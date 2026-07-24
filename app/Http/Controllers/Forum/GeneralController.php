@@ -10,6 +10,7 @@ use App\Models\ForumCategory;
 use App\Models\ForumReply;
 use App\Models\ForumThread;
 use App\Models\ForumThreadView;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 
 class GeneralController extends Controller
@@ -97,13 +98,34 @@ class GeneralController extends Controller
     public function replies($threadId)
     {
         $page = request()->query('page', 1);
-        $replies = Cache::remember("forum:thread:{$threadId}:replies:page:{$page}", 30, function () use ($threadId) {
-            return ForumReply::where('thread_id', $threadId)
+        $path = request()->url();
+        $query = request()->query();
+
+        $data = Cache::remember("forum:thread:{$threadId}:replies:page:{$page}", 30, function () use ($threadId) {
+            $paginated = ForumReply::where('thread_id', $threadId)
                 ->where('is_deleted', false)
                 ->with('user')
                 ->orderBy('created_at', 'asc')
                 ->paginate(9);
+
+            return [
+                'items' => $paginated->items(),
+                'total' => $paginated->total(),
+                'perPage' => $paginated->perPage(),
+                'currentPage' => $paginated->currentPage(),
+                'lastPage' => $paginated->lastPage(),
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ];
         });
+
+        $replies = new LengthAwarePaginator(
+            $data['items'],
+            $data['total'],
+            $data['perPage'],
+            $data['currentPage'],
+            ['path' => $path, 'query' => $query]
+        );
 
         return response()->json($replies, 200);
     }
