@@ -10,6 +10,7 @@ use App\Models\EmailVerificationCode;
 use App\Models\MarketplaceItem;
 use App\Models\MarketplaceItemInventory;
 use App\Models\SiteSetting;
+use App\Models\PasswordResetToken;
 use App\Models\User;
 use App\Models\UserAvatarColor;
 use App\Models\UserPrivacySetting;
@@ -17,6 +18,8 @@ use App\Models\UserToken;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use App\Mail\PasswordResetMail;
+use Illuminate\Support\Facades\Request;
 
 class AuthController extends Controller
 {
@@ -120,5 +123,55 @@ class AuthController extends Controller
         ]);
 
         return response()->json(['token' => $token], 200);
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email', 'exists:users,email'],
+        ]);
+
+        $user = User::where('email', $data['email'])->first();
+        if (!$user) {
+            return response()->json(['message' => 'If that email exists, a reset link has been sent.'], 200);
+        }
+
+        $token = bin2hex(random_bytes(32));
+        $expiresAt = now()->addHours(1);
+
+        PasswordResetToken::create([
+            'email' => $user->email,
+            'token' => $token,
+            'expires_at' => $expiresAt,
+        ]);
+
+        Mail::to($user->email)->send(new PasswordResetMail($token, $user->email));
+
+        return response()->json(['message' => 'If that email exists, a reset link has been sent.'], 200);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $data = $request->validate([
+            'token' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:6', 'confirmed'],
+        ]);
+
+        $reset = PasswordResetToken::where('token', $data['token'])->first();
+        if (!$reset || $reset->expires_at->isPast()) {
+            return response()->json(['message' => 'Invalid or expired token.'], 422);
+        }
+
+        $user = User::where('email', $reset->email)->first();
+        if (!$user) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        $user->password = bcrypt($data['password']);
+        $user->save();
+
+        $reset->delete();
+
+        return response()->json(['message' => 'Password reset successfully.'], 200);
     }
 }
