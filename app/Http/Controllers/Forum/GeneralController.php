@@ -12,6 +12,7 @@ use App\Models\ForumThread;
 use App\Models\ForumThreadView;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class GeneralController extends Controller
 {
@@ -148,6 +149,14 @@ class GeneralController extends Controller
         QuestController::incrementProgress($user->id, 'Post on Forums', 1);
         QuestController::incrementProgress($user->id, 'Forum Engagement', 1);
 
+        DB::table('cache')
+            ->where('key', 'like', "forum:threads:category:{$thread->category_id}:%")
+            ->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', "forum:threads:category:0:%")
+            ->delete();
+
         return response()->json([
             'data' => $thread,
         ], 201);
@@ -177,6 +186,10 @@ class GeneralController extends Controller
         // Track quest progress for forum replies
         QuestController::incrementProgress($user->id, 'Forum Engagement', 1);
         QuestController::incrementProgress($user->id, 'Interact with other players on the forums', 1);
+
+        DB::table('cache')
+        ->where('key', 'like', "fablicacheforum:thread:{$threadId}:replies:page:%")
+        ->delete(); 
 
         return response()->json([
             'data' => $reply,
