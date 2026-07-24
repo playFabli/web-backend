@@ -638,7 +638,7 @@ class GeneralController extends Controller
 
     public function deleteSellRequest($id)
     {
-        $request = MarketplaceSellRequest::select(['id', 'user_id'])
+        $request = MarketplaceSellRequest::select(['id', 'user_id', 'item_id'])
             ->where('id', $id)
             ->first();
 
