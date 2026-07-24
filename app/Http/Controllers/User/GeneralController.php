@@ -1010,7 +1010,7 @@ class GeneralController extends Controller
         $user = app('token_user');
         $data = request()->all();
         $request = Http::withoutVerifying()->withHeaders(['Accept' => 'application/json', 'Content-Type' => 'application/json', 'X-Api-Key' => env('PAYMENT_API_KEY', null)])
-            ->post('https://gate.lava.top/api/v3/invoice', ['offerId' => env('PAYMENT_OFFER_ID', null), 'amount' => $data['amount'], 'currency' => 'USD', 'email' => $user->email]);
+            ->post('https://gate.lava.top/api/v3/invoice', ['offerId' => env('PAYMENT_OFFER_ID', null), 'amount' => $data['amount'], 'currency' => 'USD', 'email' => $user->email, "paymentProvider"=>"PAYPAL"]);
 
         $data = $request->json();
 
