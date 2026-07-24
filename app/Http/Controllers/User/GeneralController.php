@@ -568,61 +568,46 @@ class GeneralController extends Controller
         $page = request()->query('page', 1);
         $perPage = 20;
 
-        if ($search) {
-            $cacheKey = 'browse_users:search:'.md5($search).':sort:'.$sortBy.':page:'.$page;
-        } else {
-            $cacheKey = 'browse_users:all:sort:'.$sortBy.':page:'.$page;
-        }
+        $cacheKey = 'browse_users:' . md5($search . ':' . $sortBy . ':' . $page);
 
-        $users = Cache::remember($cacheKey, 120, function () use ($search, $sortBy, $perPage) {
-            $query = User::select(['id', 'username', 'bubble', 'rap', 'created_at', 'last_seen_at']);
+        $usersData = Cache::remember($cacheKey, 120, function () use ($search, $sortBy, $page, $perPage) {
+            $query = User::select(['id', 'username', 'bubble', 'rap', 'final_rap', 'created_at', 'last_seen_at']);
 
             if ($search) {
                 $query->where('username', 'like', "%{$search}%");
             }
 
-            $totalCount = $query->count();
-
-            $usersCollection = $query->get();
-
             switch ($sortBy) {
                 case 'oldest':
-                    $usersCollection = $usersCollection->sortBy('created_at');
+                    $query->orderBy('created_at', 'asc');
                     break;
-
                 case 'highest_rap':
-                    $usersCollection = $usersCollection->sortByDesc('final_rap');
+                    $query->orderBy('final_rap', 'desc'); 
                     break;
-
                 case 'newest':
                 default:
-                    $usersCollection = $usersCollection->sortByDesc('created_at');
+                    $query->orderBy('created_at', 'desc');
                     break;
             }
 
-            $currentPageItems = $usersCollection->slice(0, $perPage)->values();
+            $paginator = $query->paginate($perPage, ['*'], 'page', $page);
 
             return [
-                'items' => $currentPageItems,
-                'total' => $totalCount,
-                'perPage' => $perPage,
-                'currentPage' => 1,
+                'items' => collect($paginator->items())->toArray(),
+                'total' => $paginator->total(),
             ];
         });
 
-        $paginated = new LengthAwarePaginator(
-            $users['items'],
-            $users['total'],
-            $users['perPage'],
-            $users['currentPage'],
+        $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
+            $usersData['items'],
+            $usersData['total'],
+            $perPage,
+            $page,
             ['path' => request()->url(), 'query' => request()->query()]
         );
 
-        // Ensure page is correct after retrieving from cache
-        $pageItems = $paginated->getCollection()->slice(($page - 1) * $perPage, $perPage)->values();
-        $paginated->setCollection($pageItems);
-
         return response()->json($paginated);
+
     }
 
     // Petitions

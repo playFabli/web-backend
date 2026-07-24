@@ -24,16 +24,20 @@ class GeneralController extends Controller
 {
     public function categories($all = 1)
     {
+
         $categories = Cache::remember("marketplace:categories:all:{$all}", 3600, function () use ($all) {
             if (! $all) {
-                return MarketplaceCategory::where('is_admin_only', 0)->get();
+                return MarketplaceCategory::where('is_admin_only', 0)
+                    ->get()
+                    ->toArray();
             }
 
-            return MarketplaceCategory::all();
+            return MarketplaceCategory::all()->toArray();
         });
 
         return response()->json([
-            'data' => $categories, $all,
+            'data' => $categories,
+            'all_param' => $all
         ], 200);
     }
 
