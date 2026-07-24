@@ -18,7 +18,7 @@ class GeneralController extends Controller
     public function categories()
     {
         $categories = Cache::remember('forum:categories', 3600, function () {
-            return ForumCategory::all();
+            return ForumCategory::all()->toArray();
         });
 
         return response()->json([
