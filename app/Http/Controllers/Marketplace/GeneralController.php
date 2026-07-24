@@ -18,17 +18,19 @@ use App\Models\MarketplaceItemInventory;
 use App\Models\MarketplaceSellRequest;
 use App\Models\MarketplaceSellRequestHistory;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 
 class GeneralController extends Controller
 {
     public function categories($all = 1)
     {
+        $categories = Cache::remember("marketplace:categories:all:{$all}", 3600, function () use ($all) {
+            if (! $all) {
+                return MarketplaceCategory::where('is_admin_only', 0)->get();
+            }
 
-        if (! $all) {
-            $categories = MarketplaceCategory::where('is_admin_only', 0)->get();
-        } else {
-            $categories = MarketplaceCategory::all();
-        }
+            return MarketplaceCategory::all();
+        });
 
         return response()->json([
             'data' => $categories, $all,
@@ -142,7 +144,7 @@ class GeneralController extends Controller
                 $data['texture_path'] = 'textures/'.$filename.'.png';
             }
 
-            $item->moderation_status = "pending";
+            $item->moderation_status = 'pending';
             $item->save();
         }
 
@@ -278,37 +280,45 @@ class GeneralController extends Controller
 
         $query = request()->query('query', '');
 
-        $items = MarketplaceItem::whereIn('category_id', $categories)
-            ->where('is_deleted', false)
-            ->where('moderation_status', 'approved')
-            ->whereBetween('price', [$priceMin, $priceMax])
-            ->whereBetween('rap', [$rapMin, $rapMax])
-            ->where(function ($q) use ($query) {
-                $q->where('title', 'like', "%$query%")
-                    ->orWhere('description', 'like', "%$query%");
-            })
-            ->with('user')
-            ->with('category')
-            ->orderBy('created_at', 'desc')
-            ->paginate(12);
+        $cacheKey = 'marketplace:items:categories:'.md5(implode(',', $categories)).":price:{$priceMin}:{$priceMax}:rap:{$rapMin}:{$rapMax}:query:".md5($query);
+
+        $items = Cache::remember($cacheKey, 60, function () use ($categories, $priceMin, $priceMax, $rapMin, $rapMax, $query) {
+            return MarketplaceItem::whereIn('category_id', $categories)
+                ->where('is_deleted', false)
+                ->where('moderation_status', 'approved')
+                ->whereBetween('price', [$priceMin, $priceMax])
+                ->whereBetween('rap', [$rapMin, $rapMax])
+                ->where(function ($q) use ($query) {
+                    $q->where('title', 'like', "%$query%")
+                        ->orWhere('description', 'like', "%$query%");
+                })
+                ->with('user')
+                ->with('category')
+                ->orderBy('created_at', 'desc')
+                ->paginate(12);
+        });
 
         // Track quest progress for visiting marketplace
         $user = app('token_user');
-        QuestController::incrementProgress($user->id, 'Visit Marketplace', 1);
+        if ($user) {
+            QuestController::incrementProgress($user->id, 'Visit Marketplace', 1);
+        }
 
         return response()->json($items, 200);
     }
 
     public function item($id)
     {
-        $item = MarketplaceItem::where('id', $id)
-            ->where('is_deleted', false)
-            ->with('user')
-            ->with('category')
-            ->with(['comments' => function ($query) {
-                $query->orderBy('created_at', 'desc');
-            }, 'comments.user'])
-            ->first();
+        $item = Cache::remember("marketplace:item:{$id}", 60, function () use ($id) {
+            return MarketplaceItem::where('id', $id)
+                ->where('is_deleted', false)
+                ->with('user')
+                ->with('category')
+                ->with(['comments' => function ($query) {
+                    $query->orderBy('created_at', 'desc');
+                }, 'comments.user'])
+                ->first();
+        });
 
         if (! $item) {
             return response()->json([
@@ -323,9 +333,11 @@ class GeneralController extends Controller
 
     public function comments($id)
     {
-        $item = MarketplaceItem::where('id', $id)
-            ->where('is_deleted', false)
-            ->first();
+        $item = Cache::remember("marketplace:item:{$id}", 60, function () use ($id) {
+            return MarketplaceItem::where('id', $id)
+                ->where('is_deleted', false)
+                ->first();
+        });
 
         if (! $item) {
             return response()->json([
@@ -333,7 +345,10 @@ class GeneralController extends Controller
             ], 404);
         }
 
-        $comments = $item->comments()->with('user')->orderBy('created_at', 'desc')->get();
+        $page = request()->query('page', 1);
+        $comments = Cache::remember("marketplace:item:{$id}:comments:page:{$page}", 30, function () use ($item) {
+            return $item->comments()->with('user')->orderBy('created_at', 'desc')->get();
+        });
 
         return response()->json($comments, 200);
     }
@@ -452,9 +467,11 @@ class GeneralController extends Controller
 
     public function caseContents($id)
     {
-        $item = MarketplaceItem::where('id', $id)
-            ->where('is_deleted', false)
-            ->first();
+        $item = Cache::remember("marketplace:item:{$id}", 60, function () use ($id) {
+            return MarketplaceItem::where('id', $id)
+                ->where('is_deleted', false)
+                ->first();
+        });
 
         if (! $item) {
             return response()->json([
@@ -468,16 +485,20 @@ class GeneralController extends Controller
             ], 422);
         }
 
-        $items = MarketplaceCaseContent::where('case_id', $item->id)->with('item')->get();
+        $items = Cache::remember("marketplace:case:{$id}:contents", 120, function () use ($item) {
+            return MarketplaceCaseContent::where('case_id', $item->id)->with('item')->get();
+        });
 
         return response()->json(['data' => $items], 200);
     }
 
     public function owners($id)
     {
-        $item = MarketplaceItem::where('id', $id)
-            ->where('is_deleted', false)
-            ->first();
+        $item = Cache::remember("marketplace:item:{$id}", 60, function () use ($id) {
+            return MarketplaceItem::where('id', $id)
+                ->where('is_deleted', false)
+                ->first();
+        });
 
         if (! $item) {
             return response()->json([
@@ -485,16 +506,21 @@ class GeneralController extends Controller
             ], 404);
         }
 
-        $owners = MarketplaceItemInventory::where('item_id', $item->id)->with('user')->paginate(5);
+        $page = request()->query('page', 1);
+        $owners = Cache::remember("marketplace:item:{$id}:owners:page:{$page}", 60, function () use ($id) {
+            return MarketplaceItemInventory::where('item_id', $id)->with('user')->paginate(5);
+        });
 
         return response()->json($owners, 200);
     }
 
     public function sellRequests($id)
     {
-        $item = MarketplaceItem::where('id', $id)
-            ->where('is_deleted', false)
-            ->first();
+        $item = Cache::remember("marketplace:item:{$id}", 60, function () use ($id) {
+            return MarketplaceItem::where('id', $id)
+                ->where('is_deleted', false)
+                ->first();
+        });
 
         if (! $item) {
             return response()->json([
@@ -502,7 +528,10 @@ class GeneralController extends Controller
             ], 404);
         }
 
-        $requests = MarketplaceSellRequest::where('item_id', $item->id)->with('inventory')->with('user')->paginate(5);
+        $page = request()->query('page', 1);
+        $requests = Cache::remember("marketplace:item:{$id}:sell_requests:page:{$page}", 60, function () use ($id) {
+            return MarketplaceSellRequest::where('item_id', $id)->with('inventory')->with('user')->paginate(5);
+        });
 
         return response()->json($requests, 200);
     }

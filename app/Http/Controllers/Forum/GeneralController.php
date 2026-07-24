@@ -10,12 +10,15 @@ use App\Models\ForumCategory;
 use App\Models\ForumReply;
 use App\Models\ForumThread;
 use App\Models\ForumThreadView;
+use Illuminate\Support\Facades\Cache;
 
 class GeneralController extends Controller
 {
     public function categories()
     {
-        $categories = ForumCategory::all();
+        $categories = Cache::remember('forum:categories', 3600, function () {
+            return ForumCategory::all();
+        });
 
         return response()->json([
             'data' => $categories,
@@ -25,22 +28,24 @@ class GeneralController extends Controller
     public function threads($categoryId = 0)
     {
         $query = request()->query('query', '');
-        if ($categoryId == 0) {
-            // all
-            $threads = ForumThread::where('is_deleted', false)
-                ->where(function ($q) use ($query) {
-                    $q->where('title', 'like', "%$query%")
-                        ->orWhere('content', 'like', "%$query%");
-                })
-                ->with('user')
-                ->with('category')
-                ->orderBy('is_pinned', 'desc')
-                ->orderBy('created_at', 'desc')
-                ->paginate(9);
+        $page = request()->query('page', 1);
+        $cacheKey = 'forum:threads:category:'.$categoryId.':query:'.md5($query).':page:'.$page;
 
-            return response()->json($threads, 200);
-        } else {
-            $threads = ForumThread::where('category_id', $categoryId)
+        $threads = Cache::remember($cacheKey, 60, function () use ($categoryId, $query) {
+            if ($categoryId == 0) {
+                return ForumThread::where('is_deleted', false)
+                    ->where(function ($q) use ($query) {
+                        $q->where('title', 'like', "%$query%")
+                            ->orWhere('content', 'like', "%$query%");
+                    })
+                    ->with('user')
+                    ->with('category')
+                    ->orderBy('is_pinned', 'desc')
+                    ->orderBy('created_at', 'desc')
+                    ->paginate(9);
+            }
+
+            return ForumThread::where('category_id', $categoryId)
                 ->where('is_deleted', false)
                 ->where(function ($q) use ($query) {
                     $q->where('title', 'like', "%$query%")
@@ -51,18 +56,20 @@ class GeneralController extends Controller
                 ->orderBy('is_pinned', 'desc')
                 ->orderBy('created_at', 'desc')
                 ->paginate(9);
+        });
 
-            return response()->json($threads, 200);
-        }
+        return response()->json($threads, 200);
     }
 
     public function thread($id)
     {
-        $thread = ForumThread::where('id', $id)
-            ->where('is_deleted', false)
-            ->with('user')
-            ->with('category')
-            ->first();
+        $thread = Cache::remember("forum:thread:{$id}", 60, function () use ($id) {
+            return ForumThread::where('id', $id)
+                ->where('is_deleted', false)
+                ->with('user')
+                ->with('category')
+                ->first();
+        });
 
         if (! $thread) {
             return response()->json([
@@ -89,11 +96,14 @@ class GeneralController extends Controller
 
     public function replies($threadId)
     {
-        $replies = ForumReply::where('thread_id', $threadId)
-            ->where('is_deleted', false)
-            ->with('user')
-            ->orderBy('created_at', 'asc')
-            ->paginate(9);
+        $page = request()->query('page', 1);
+        $replies = Cache::remember("forum:thread:{$threadId}:replies:page:{$page}", 30, function () use ($threadId) {
+            return ForumReply::where('thread_id', $threadId)
+                ->where('is_deleted', false)
+                ->with('user')
+                ->orderBy('created_at', 'asc')
+                ->paginate(9);
+        });
 
         return response()->json($replies, 200);
     }

@@ -473,6 +473,11 @@ class GeneralController extends Controller
         $offsale = filter_var($data['offsale'], FILTER_VALIDATE_BOOLEAN);
         $limited = filter_var($data['limited'], FILTER_VALIDATE_BOOLEAN);
 
+        if ($data['rarity'] == 'epic') {
+            // dumbass
+            $data['rarity'] = 'ultra_rare';
+        }
+
         $item = MarketplaceItem::create([
             'user_id' => 1, // Admin-created items have user_id 0
             'category_id' => $data['category_id'],

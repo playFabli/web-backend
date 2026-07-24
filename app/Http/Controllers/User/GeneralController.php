@@ -20,6 +20,7 @@ use App\Models\UserProfileWall;
 use App\Models\UserWearing;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class GeneralController extends Controller
@@ -124,17 +125,29 @@ class GeneralController extends Controller
 
     public function user($id)
     {
-        $user = User::where('id', $id)->with('privacy')->first();
-        $user['friend_status'] = 'none';
-
-        // check request
         $from = app('token_user');
+
+        $cacheKey = 'user:'.$id.':friend_status';
+        if ($from) {
+            $fromId = is_object($from) ? $from->id : $from['id'];
+            $cacheKey .= ':from:'.$fromId;
+        } else {
+            $cacheKey .= ':from:guest';
+        }
+
+        $user = Cache::remember($cacheKey, 60, function () use ($id) {
+            return User::where('id', $id)->with('privacy')->first();
+        });
+
         if (! $from || ! $user) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'User not found',
             ], 404);
         }
+
+        $user['friend_status'] = 'none';
+
         $fromId = is_object($from) ? $from->id : $from['id'];
         $request = UserFriendRequest::where('from_id', $fromId)->where('to_id', $user->id)->orWhere('from_id', $user->id)->where('to_id', $fromId)->first();
         if ($request) {
@@ -167,7 +180,10 @@ class GeneralController extends Controller
             ], 404);
         }
 
-        $wall = UserProfileWall::where('user_id', $user->id)->with('author')->orderBy('created_at', 'desc')->paginate(6);
+        $page = request()->query('page', 1);
+        $wall = Cache::remember('user:'.$id.':wall:page:'.$page, 30, function () use ($id) {
+            return UserProfileWall::where('user_id', $id)->with('author')->orderBy('created_at', 'desc')->paginate(6);
+        });
 
         return response()->json($wall);
     }
@@ -210,27 +226,31 @@ class GeneralController extends Controller
         $limit = request()->query('limit', 20);
         $showDuplicates = request()->query('show_duplicates', 0);
 
-        $itemsQuery = MarketplaceItemInventory::where('user_id', $user->id)->whereHas('item', function ($query) {
-             $query->where('moderation_status', 'approved');
+        $cacheKey = 'inventory:user:'.$user->id.':category:'.$category.':page:'.$page.':limit:'.$limit.':dup:'.$showDuplicates;
+
+        $items = Cache::remember($cacheKey, 30, function () use ($user, $category, $limit, $showDuplicates) {
+            $itemsQuery = MarketplaceItemInventory::where('user_id', $user->id)->whereHas('item', function ($query) {
+                $query->where('moderation_status', 'approved');
             })
-            ->with('item')
-            ->with('item.category');
+                ->with('item')
+                ->with('item.category');
 
-        if ($category !== 'all') {
-            $itemsQuery->whereHas('item', function ($query) use ($category) {
-                $query->whereHas('category', function ($q) use ($category) {
-                    $q->where('title', $category);
+            if ($category !== 'all') {
+                $itemsQuery->whereHas('item', function ($query) use ($category) {
+                    $query->whereHas('category', function ($q) use ($category) {
+                        $q->where('title', $category);
+                    });
                 });
-            });
-        }
+            }
 
-        // Filter out duplicate items by default (for avatar page)
-        // If show_duplicates is true, show all items including duplicates
-        if ($showDuplicates == 0) {
-            $itemsQuery->groupBy('item_id');
-        }
+            // Filter out duplicate items by default (for avatar page)
+            // If show_duplicates is true, show all items including duplicates
+            if ($showDuplicates == 0) {
+                $itemsQuery->groupBy('item_id');
+            }
 
-        $items = $itemsQuery->paginate($limit, ['*'], 'page', $page);
+            return $itemsQuery->paginate($limit);
+        });
 
         return response()->json($items);
     }
@@ -299,7 +319,13 @@ class GeneralController extends Controller
         $limit = request()->query('limit', 0);
         $pagination = request()->query('pagination', true);
         $category = request()->query('category', 0);
-        $user = User::where('id', $id)->first();
+
+        $cacheKey = 'inventory:user:'.$id.':category:'.$category.':limit:'.$limit.':pagination:'.$pagination;
+
+        $user = Cache::remember('user:'.$id, 60, function () use ($id) {
+            return User::where('id', $id)->first();
+        });
+
         if (! $user) {
             return response()->json([
                 'status' => 'error',
@@ -311,29 +337,29 @@ class GeneralController extends Controller
         //     return response()->json(['data' => [], 'total' => 0], 200);
         // }
 
-        $itemsQuery = MarketplaceItemInventory::where('user_id', $user->id)->whereHas('item', function ($query) {
-             $query->where('moderation_status', 'approved');
+        $items = Cache::remember($cacheKey, 30, function () use ($user, $category, $limit, $pagination) {
+            $itemsQuery = MarketplaceItemInventory::where('user_id', $user->id)->whereHas('item', function ($query) {
+                $query->where('moderation_status', 'approved');
             })
-            ->with('item')
-            ->with('item.category');
+                ->with('item')
+                ->with('item.category');
 
-        if ($category != 0) {
-            $itemsQuery->whereHas('item', function ($query) use ($category) {
-                $query->where('category_id', $category);
-            });
-        }
+            if ($category != 0) {
+                $itemsQuery->whereHas('item', function ($query) use ($category) {
+                    $query->where('category_id', $category);
+                });
+            }
 
-        if ($pagination) {
-            $items = $itemsQuery->paginate($limit);
+            if ($pagination) {
+                return $itemsQuery->paginate($limit);
+            }
 
-            return response()->json($items);
-        }
+            if ($limit != 0) {
+                return $itemsQuery->limit($limit)->get();
+            }
 
-        if ($limit != 0) {
-            $items = $itemsQuery->limit($limit)->get();
-        } else {
-            $items = $itemsQuery->get();
-        }
+            return $itemsQuery->get();
+        });
 
         return response()->json($items);
     }
@@ -440,43 +466,47 @@ class GeneralController extends Controller
         $page = request()->query('page', 1);
         $perPage = 9;
 
-        $allUsers = User::all()->sortByDesc(function ($user) {
-            return $user->final_rap;
-        })->values();
+        return Cache::remember('leaderboard:page:'.$page.':perPage:'.$perPage, 60, function () use ($page, $perPage) {
+            $allUsers = User::all()->sortByDesc(function ($user) {
+                return $user->final_rap;
+            })->values();
 
-        $total = $allUsers->count();
+            $total = $allUsers->count();
 
-        $rankedUsers = $allUsers->map(function ($user, $index) {
-            return [
-                'rank' => $index + 1,
-                'id' => $user->id,
-                'username' => $user->username,
-                'final_rap' => $user->final_rap,
-                'bubble' => $user->bubble,
-                'item_count' => $user->item_count,
-                'is_online' => $user->is_online,
-                'last_seen_at' => $user->last_seen_at,
-            ];
+            $rankedUsers = $allUsers->map(function ($user, $index) {
+                return [
+                    'rank' => $index + 1,
+                    'id' => $user->id,
+                    'username' => $user->username,
+                    'final_rap' => $user->final_rap,
+                    'bubble' => $user->bubble,
+                    'item_count' => $user->item_count,
+                    'is_online' => $user->is_online,
+                    'last_seen_at' => $user->last_seen_at,
+                ];
+            });
+
+            $paginated = new LengthAwarePaginator(
+                $rankedUsers->forPage($page, $perPage)->values(),
+                $total,
+                $perPage,
+                $page,
+                ['path' => request()->url(), 'query' => request()->query()]
+            );
+
+            return $paginated;
         });
-
-        $paginated = new LengthAwarePaginator(
-            $rankedUsers->forPage($page, $perPage)->values(),
-            $total,
-            $perPage,
-            $page,
-            ['path' => request()->url(), 'query' => request()->query()]
-        );
-
-        return response()->json($paginated);
     }
 
     // Newest Users
 
     public function newestUsers()
     {
-        $users = User::orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get(['id', 'username', 'created_at']);
+        $users = Cache::remember('newest_users', 60, function () {
+            return User::orderBy('created_at', 'desc')
+                ->limit(10)
+                ->get(['id', 'username', 'created_at']);
+        });
 
         return response()->json([
             'data' => $users,
@@ -492,40 +522,55 @@ class GeneralController extends Controller
         $page = request()->query('page', 1);
         $perPage = 20;
 
-        $query = User::query();
+        $cacheKey = 'browse_users:search:'.md5($search).':sort:'.$sortBy.':page:'.$page;
 
-        if ($search) {
-            $query->where('username', 'like', "%{$search}%");
+        $users = Cache::remember($cacheKey, 120, function () use ($search, $sortBy, $perPage) {
+            $query = User::query();
+
+            if ($search) {
+                $query->where('username', 'like', "%{$search}%");
+            }
+
+            $totalCount = $query->count();
+
+            $usersCollection = $query->with('inventory.item')->get();
+
+            switch ($sortBy) {
+                case 'oldest':
+                    $usersCollection = $usersCollection->sortBy('created_at');
+                    break;
+
+                case 'highest_rap':
+                    $usersCollection = $usersCollection->sortByDesc('final_rap');
+                    break;
+
+                case 'newest':
+                default:
+                    $usersCollection = $usersCollection->sortByDesc('created_at');
+                    break;
+            }
+
+            $currentPageItems = $usersCollection->slice(0, $perPage)->values();
+
+            return new LengthAwarePaginator(
+                $currentPageItems,
+                $totalCount,
+                $perPage,
+                1,
+                ['path' => request()->url(), 'query' => request()->query()]
+            );
+        });
+
+        // Re-set path/query for pagination links because the cached paginator retains the cached request context
+        if ($users instanceof LengthAwarePaginator) {
+            $users->setPath(request()->url());
+            $users->appends(request()->query());
+            // Ensure page is correct after retrieving from cache
+            $pageItems = $users->getCollection()->slice(($page - 1) * $perPage, $perPage)->values();
+            $users->setCollection($pageItems);
+            $users->withPath(request()->url());
+            $users->appends(request()->query());
         }
-
-        $totalCount = $query->count();
-
-        $usersCollection = $query->with('inventory.item')->get();
-
-        switch ($sortBy) {
-            case 'oldest':
-                $usersCollection = $usersCollection->sortBy('created_at');
-                break;
-
-            case 'highest_rap':
-                $usersCollection = $usersCollection->sortByDesc('final_rap');
-                break;
-
-            case 'newest':
-            default:
-                $usersCollection = $usersCollection->sortByDesc('created_at');
-                break;
-        }
-
-        $currentPageItems = $usersCollection->slice(($page - 1) * $perPage, $perPage)->values();
-
-        $users = new LengthAwarePaginator(
-            $currentPageItems,
-            $totalCount,
-            $perPage,
-            $page,
-            ['path' => request()->url(), 'query' => request()->query()]
-        );
 
         return response()->json($users);
     }
@@ -537,11 +582,16 @@ class GeneralController extends Controller
         $page = request()->query('page', 1);
         $perPage = 10;
 
-        $petitions = Petition::with('user')
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage, ['*'], 'page', $page);
-
         $user = app('token_user');
+        $userId = $user ? (is_object($user) ? $user->id : $user['id']) : 'guest';
+        $cacheKey = 'petitions:page:'.$page.':perPage:'.$perPage.':user:'.$userId;
+
+        $petitions = Cache::remember($cacheKey, 60, function () use ($perPage, $page) {
+            return Petition::with('user')
+                ->orderBy('created_at', 'desc')
+                ->paginate($perPage, ['*'], 'page', $page);
+        });
+
         $petitions->getCollection()->transform(function ($petition) use ($user) {
             $petition->user_vote = $petition->votes->where('user_id', $user->id)->first()?->vote ?? null;
 
@@ -895,10 +945,10 @@ class GeneralController extends Controller
 
         $data = $request->json();
 
-        $contract = new UserPaymentContract();
+        $contract = new UserPaymentContract;
         $contract->user_id = $user->id;
-        $contract->contract_uuid = $data["id"];
-        $contract->amount = $data["amountTotal"]["amount"];
+        $contract->contract_uuid = $data['id'];
+        $contract->amount = $data['amountTotal']['amount'];
         $contract->save();
 
         return response()->json([
