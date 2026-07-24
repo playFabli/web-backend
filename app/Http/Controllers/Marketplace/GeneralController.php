@@ -264,8 +264,9 @@ class GeneralController extends Controller
         }
 
         $query = request()->query('query', '');
+        $page = request()->query('page', 1);
 
-        $cacheKey = 'marketplace:items:categories:'.md5(implode(',', $categories)).":price:{$priceMin}:{$priceMax}:rap:{$rapMin}:{$rapMax}:query:".md5($query);
+        $cacheKey = 'marketplace:items:categories:'.md5(implode(',', $categories)).":price:{$priceMin}:{$priceMax}:rap:{$rapMin}:{$rapMax}:query:".md5($query).":page:{$page}";
 
         $items = Cache::remember($cacheKey, 60, function () use ($categories, $priceMin, $priceMax, $rapMin, $rapMax, $query) {
             $paginator = MarketplaceItem::select([
