@@ -18,7 +18,7 @@ class GeneralController extends Controller
 {
     public function categories()
     {
-        $categories = Cache::rememberArray('forum:categories', 3600, function () {
+        $categories = Cache::remember('forum:categories', 3600, function () {
             return ForumCategory::all()->toArray();
         });
 
@@ -33,7 +33,7 @@ class GeneralController extends Controller
         $page = request()->query('page', 1);
         $cacheKey = 'forum:threads:category:'.$categoryId.':query:'.md5($query).':page:'.$page;
 
-        $threads = Cache::rememberArray($cacheKey, 60, function () use ($categoryId, $query) {
+        $threads = Cache::remember($cacheKey, 60, function () use ($categoryId, $query) {
             if ($categoryId == 0) {
                 return ForumThread::where('is_deleted', false)
                     ->where(function ($q) use ($query) {
@@ -65,7 +65,7 @@ class GeneralController extends Controller
 
     public function thread($id)
     {
-        $thread = Cache::rememberArray("forum:thread:{$id}", 60, function () use ($id) {
+        $thread = Cache::remember("forum:thread:{$id}", 60, function () use ($id) {
             return ForumThread::where('id', $id)
                 ->where('is_deleted', false)
                 ->with('user')
@@ -102,7 +102,7 @@ class GeneralController extends Controller
         $path = request()->url();
         $query = request()->query();
 
-        $data = Cache::rememberArray("forum:thread:{$threadId}:replies:page:{$page}", 30, function () use ($threadId) {
+        $data = Cache::remember("forum:thread:{$threadId}:replies:page:{$page}", 30, function () use ($threadId) {
             $paginated = ForumReply::where('thread_id', $threadId)
                 ->where('is_deleted', false)
                 ->with('user:id,username') 

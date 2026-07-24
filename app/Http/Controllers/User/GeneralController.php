@@ -132,7 +132,7 @@ class GeneralController extends Controller
             $cacheKey .= ':from:guest';
         }
 
-        $user = Cache::rememberArray($cacheKey, 60, function () use ($id) {
+        $user = Cache::remember($cacheKey, 60, function () use ($id) {
             return User::select([
                 'id', 'username', 'description', 'bubble', 'level', 'exp', 'coins', 'role',
                 'final_rap', 'is_email_verified', 'last_seen_at', 'created_at',
@@ -193,7 +193,7 @@ class GeneralController extends Controller
         $path = request()->url();
         $query = request()->query();
 
-        $data = Cache::rememberArray('user:'.$id.':wall:page:'.$page, 30, function () use ($id) {
+        $data = Cache::remember('user:'.$id.':wall:page:'.$page, 30, function () use ($id) {
             $paginated = UserProfileWall::select(['id', 'user_id', 'author_id', 'content', 'created_at'])
                 ->where('user_id', $id)
                 ->with('author:id,username')
@@ -257,7 +257,7 @@ class GeneralController extends Controller
         $path = request()->url();
         $query = request()->query();
 
-        $data = Cache::rememberArray($cacheKey, 30, function () use ($user, $category, $limit, $showDuplicates) {
+        $data = Cache::remember($cacheKey, 30, function () use ($user, $category, $limit, $showDuplicates) {
             $itemsQuery = MarketplaceItemInventory::select(['id', 'item_id', 'user_id', 'serial', 'price'])
                 ->where('user_id', $user->id)
                 ->whereHas('item', function ($query) {
@@ -355,7 +355,7 @@ class GeneralController extends Controller
 
         $cacheKey = 'inventory:user:'.$id.':category:'.$category.':limit:'.$limit.':pagination:'.$pagination;
 
-        $user = Cache::rememberArray('user:'.$id, 60, function () use ($id) {
+        $user = Cache::remember('user:'.$id, 60, function () use ($id) {
             return User::select(['id'])->where('id', $id)->first();
         });
 
@@ -369,7 +369,7 @@ class GeneralController extends Controller
         $path = request()->url();
         $query = request()->query();
 
-        $items = Cache::rememberArray($cacheKey, 30, function () use ($user, $category, $limit, $pagination) {
+        $items = Cache::remember($cacheKey, 30, function () use ($user, $category, $limit, $pagination) {
             $itemsQuery = MarketplaceItemInventory::select(['id', 'item_id', 'user_id', 'serial', 'price'])
                 ->where('user_id', $user->id)
                 ->whereHas('item', function ($query) {
@@ -507,7 +507,7 @@ class GeneralController extends Controller
         $page = request()->query('page', 1);
         $perPage = 9;
 
-        $data = Cache::rememberArray("leaderboard:page:{$page}", 60, function () use ($page, $perPage) {
+        $data = Cache::remember("leaderboard:page:{$page}", 60, function () use ($page, $perPage) {
             $paginator = User::select(['id', 'username', 'bubble', 'last_seen_at', 'final_rap', 'item_count'])
                 ->orderBy('final_rap', 'desc')
                 ->paginate($perPage, ['*'], 'page', $page);
@@ -547,7 +547,7 @@ class GeneralController extends Controller
 
     public function newestUsers()
     {
-        $users = Cache::rememberArray('newest_users', 60, function () {
+        $users = Cache::remember('newest_users', 60, function () {
             return User::select(['id', 'username', 'created_at'])
                 ->orderBy('created_at', 'desc')
                 ->limit(10)
@@ -570,7 +570,7 @@ class GeneralController extends Controller
 
         $cacheKey = 'browse_users:' . md5($search . ':' . $sortBy . ':' . $page);
 
-        $usersData = Cache::rememberArray($cacheKey, 120, function () use ($search, $sortBy, $page, $perPage) {
+        $usersData = Cache::remember($cacheKey, 120, function () use ($search, $sortBy, $page, $perPage) {
             $query = User::select(['id', 'username', 'bubble', 'rap', 'final_rap', 'created_at', 'last_seen_at']);
 
             if ($search) {
@@ -621,7 +621,7 @@ class GeneralController extends Controller
         $userId = $user ? (is_object($user) ? $user->id : $user['id']) : 'guest';
         $cacheKey = 'petitions:page:'.$page.':perPage:'.$perPage.':user:'.$userId;
 
-        $petitions = Cache::rememberArray($cacheKey, 60, function () use ($perPage, $page, $user) {
+        $petitions = Cache::remember($cacheKey, 60, function () use ($perPage, $page, $user) {
             $paginated = Petition::select(['id', 'user_id', 'title', 'description', 'type', 'upvotes', 'downvotes', 'approved', 'created_at'])
                 ->with('user:id,username')
                 ->orderBy('created_at', 'desc')

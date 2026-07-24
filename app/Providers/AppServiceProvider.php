@@ -37,17 +37,5 @@ class AppServiceProvider extends ServiceProvider
             return $userToken->user;
         });
 
-        Cache::macro('rememberArray', function (string $key, $ttl, Closure $callback) {
-            return Cache::rememberArray($key, ttl: $ttl, callback: function () use ($callback) {
-                $result = $callback();
-
-                if ($result instanceof Arrayable) {
-                    return $result->toArray();
-                }
-
-                return $result;
-            });
-        });
-
     }
 }
