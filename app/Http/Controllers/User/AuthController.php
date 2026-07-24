@@ -19,8 +19,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Mail\PasswordResetMail;
-use Illuminate\Support\Facades\Request;
-
+use Illuminate\Http\Request;
 class AuthController extends Controller
 {
     public function register(AuthRegisterRequest $request)
