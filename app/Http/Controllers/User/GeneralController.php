@@ -5,11 +5,13 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Http\Helpers\PythonRenderHelper;
 use App\Http\Requests\User\PostToWallRequest;
+use App\Models\AdminLog;
 use App\Models\MarketplaceCaseContent;
 use App\Models\MarketplaceItemInventory;
 use App\Models\Petition;
 use App\Models\PetitionVote;
 use App\Models\RoadmapItem;
+use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserAvatarColor;
 use App\Models\UserBan;
@@ -18,6 +20,7 @@ use App\Models\UserFriendRequest;
 use App\Models\UserPaymentContract;
 use App\Models\UserProfileWall;
 use App\Models\UserWearing;
+use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -104,7 +107,14 @@ class GeneralController extends Controller
             ->latest()
             ->first();
 
+        if(!Carbon::parse($latestBan->expires_at)->isPast()) {
+            return;
+        }
+
         if ($latestBan) {
+            $user->role = "user";
+            $user->save();
+            
             $latestBan->delete();
 
             return response()->json([

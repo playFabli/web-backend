@@ -17,6 +17,7 @@ use App\Models\MarketplaceItem;
 use App\Models\MarketplaceItemInventory;
 use App\Models\MarketplaceSellRequest;
 use App\Models\MarketplaceSellRequestHistory;
+use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -471,6 +472,15 @@ class GeneralController extends Controller
             'price' => $item->price,
         ]);
 
+        Transaction::create([
+            'user_id' => $item->user_id,
+            'from_user_id' => $user->id,
+            'type' => 'clothing',
+            'item_id' => $item->id,
+            'amount' => $item->price,
+            'status' => 'pending',
+        ]);
+
         $user->coins = $user->coins - $item->price;
         $user->save();
 
@@ -707,6 +717,15 @@ class GeneralController extends Controller
                 'message' => 'You do not have enough coins',
             ], 422);
         }
+
+        Transaction::create([
+            'user_id' => $request->user->id,
+            'from_user_id' => $user->id,
+            'type' => 'reselling',
+            'item_id' => $request->item_id,
+            'amount' => $request->price,
+            'status' => 'pending',
+        ]);
 
         $user->coins = $user->coins - $request->price;
         $user->save();
