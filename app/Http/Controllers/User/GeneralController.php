@@ -385,7 +385,7 @@ class GeneralController extends Controller
             }
 
             if ($pagination) {
-                return $itemsQuery->paginate($limit);
+                return $itemsQuery->paginate($limit)->toArray();
             }
 
             if ($limit != 0) {
