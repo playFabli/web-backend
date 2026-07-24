@@ -104,22 +104,23 @@ class GeneralController extends Controller
         $data = Cache::remember("forum:thread:{$threadId}:replies:page:{$page}", 30, function () use ($threadId) {
             $paginated = ForumReply::where('thread_id', $threadId)
                 ->where('is_deleted', false)
-                ->with('user')
+                ->with('user:id,username') 
                 ->orderBy('created_at', 'asc')
                 ->paginate(9)->toArray();
 
             return $paginated;
         });
 
-        $replies = new LengthAwarePaginator(
-            $data['items'],
-            $data['total'],
-            $data['perPage'],
-            $data['currentPage'],
-            ['path' => $path, 'query' => $query]
-        );
+        // $replies = new LengthAwarePaginator(
+        //     $data['data'],         
+        //     $data['total'],        
+        //     $data['per_page'],     
+        //     $data['current_page'], 
+        //     ['path' => $path, 'query' => $query]
+        // );
 
-        return response()->json($replies, 200);
+        return response()->json($data, 200);
+
     }
 
     public function createThread($categoryId, CreateThreadRequest $request)
