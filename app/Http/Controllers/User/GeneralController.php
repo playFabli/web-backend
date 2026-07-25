@@ -107,7 +107,7 @@ class GeneralController extends Controller
             ->latest()
             ->first();
 
-        if (! Carbon::parse($latestBan->expires_at)->isPast()) {
+        if ($latestBan->expires_at == null || !Carbon::parse($latestBan->expires_at)->isPast()) {
             return;
         }
 
