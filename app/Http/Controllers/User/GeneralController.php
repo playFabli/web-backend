@@ -170,7 +170,7 @@ class GeneralController extends Controller
             ->merge(
                 UserFriend::where('second_id', $user['id'])->pluck('first_id')
             )
-            ->take(5);
+            ->take(10);
 
         $user['friends'] = User::select(['id', 'username', 'bubble', 'last_seen_at'])
             ->whereIn('id', $friendIds)
@@ -379,8 +379,9 @@ class GeneralController extends Controller
         $limit = request()->query('limit', 0);
         $pagination = request()->query('pagination', true);
         $category = request()->query('category', 0);
+        $page = request()->query('page', 1);
 
-        $cacheKey = 'inventory:user:'.$id.':category:'.$category.':limit:'.$limit.':pagination:'.$pagination;
+        $cacheKey = 'inventory:user:'.$id.':category:'.$category.':limit:'.$limit.':pagination:'.$pagination.':page:'.$page;
 
         $user = Cache::remember('user:'.$id, 60, function () use ($id) {
             return User::select(['id'])->where('id', $id)->first()->toArray();
@@ -396,7 +397,7 @@ class GeneralController extends Controller
         $path = request()->url();
         $query = request()->query();
 
-        $items = Cache::remember($cacheKey, 30, function () use ($user, $category, $limit, $pagination) {
+        $items = Cache::remember($cacheKey, 30, function () use ($page, $user, $category, $limit, $pagination) {
             $itemsQuery = MarketplaceItemInventory::select(['id', 'item_id', 'user_id', 'serial', 'price'])
                 ->where('user_id', $user['id'])
                 ->whereHas('item', function ($query) {
@@ -412,7 +413,7 @@ class GeneralController extends Controller
             }
 
             if ($pagination) {
-                return $itemsQuery->paginate($limit)->toArray();
+                return $itemsQuery->paginate($limit, ['*'], 'page', $page)->toArray();
             }
 
             if ($limit != 0) {
