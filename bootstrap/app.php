@@ -16,7 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(GlobalSiteMiddleware::class);
-        $middleware->preventRequestForgery(["/payments/webhook","/*"]);
+        $middleware->preventRequestForgery(['/payments/webhook', '/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
@@ -26,7 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (ThrottleRequestsException $e, $request) {
             return response()->json([
                 'status' => 'error',
-                'message' => 'You\'re sending too many requests. Please try again later.'
+                'message' => 'You\'re sending too many requests. Please try again later.',
             ], 429);
-        }); 
+        });
     })->create();

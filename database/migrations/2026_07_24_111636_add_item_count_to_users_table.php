@@ -12,18 +12,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-       Schema::table('users', function (Blueprint $table) {
+        Schema::table('users', function (Blueprint $table) {
             $table->integer('item_count')->default(0)->index();
         });
 
-        DB::statement("
+        DB::statement('
             UPDATE users u
             SET u.item_count = COALESCE((
                 SELECT COUNT(*)
                 FROM marketplace_item_inventories mii
                 WHERE mii.user_id = u.id
             ), 0)
-        ");
+        ');
     }
 
     /**

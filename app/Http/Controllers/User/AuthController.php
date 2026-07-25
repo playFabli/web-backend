@@ -6,21 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\User\AuthLoginRequest;
 use App\Http\Requests\User\AuthRegisterRequest;
 use App\Mail\EmailVerificationMail;
+use App\Mail\PasswordResetMail;
 use App\Models\EmailVerificationCode;
-use App\Models\MarketplaceItem;
-use App\Models\MarketplaceItemInventory;
-use App\Models\SiteSetting;
 use App\Models\PasswordResetToken;
+use App\Models\SiteSetting;
 use App\Models\User;
 use App\Models\UserAvatarColor;
 use App\Models\UserPrivacySetting;
 use App\Models\UserToken;
+use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use App\Mail\PasswordResetMail;
-use Carbon\Carbon;
-use Illuminate\Http\Request;
+
 class AuthController extends Controller
 {
     public function register(AuthRegisterRequest $request)
@@ -82,7 +81,7 @@ class AuthController extends Controller
             'expires_at' => $expiresAt,
         ]);
 
-        $code = new EmailVerificationCode();
+        $code = new EmailVerificationCode;
         $code->user_id = $user->id;
         $code->code = bin2hex(random_bytes(32));
         $code->save();
@@ -132,7 +131,7 @@ class AuthController extends Controller
         ]);
 
         $user = User::where('email', $data['email'])->first();
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'If that email exists, a reset link has been sent.'], 200);
         }
 
@@ -158,12 +157,12 @@ class AuthController extends Controller
         ]);
 
         $reset = PasswordResetToken::where('token', $data['token'])->first();
-        if (!$reset || Carbon::parse($reset->expires_at)->isPast()) {
+        if (! $reset || Carbon::parse($reset->expires_at)->isPast()) {
             return response()->json(['message' => 'Invalid or expired token.'], 422);
         }
 
         $user = User::where('email', $reset->email)->first();
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'User not found.'], 404);
         }
 

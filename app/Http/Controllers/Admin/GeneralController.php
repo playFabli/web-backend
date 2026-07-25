@@ -708,6 +708,49 @@ class GeneralController extends Controller
         ], 200);
     }
 
+    /**
+     * Serve the raw texture template for shirts and pants items.
+     */
+    public function requestTemplate($id)
+    {
+        $item = MarketplaceItem::where('id', $id)->with('category')->first();
+        if (! $item) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Item not found',
+            ], 404);
+        }
+
+        // Only allow for shirts (category_id=4) and pants (category_id=5)
+        if (! in_array($item->category_id, [4, 5])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Template is only available for shirts and pants.',
+            ], 403);
+        }
+
+        if (! $item->texture_path) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'This item has no texture uploaded.',
+            ], 404);
+        }
+
+        $textureFullPath = config('app.renderer_directory').'/'.$item->texture_path;
+
+        if (! file_exists($textureFullPath)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Texture file not found on disk.',
+            ], 404);
+        }
+
+        return response()->file($textureFullPath, [
+            'Content-Type' => 'image/png',
+            'Content-Disposition' => 'inline; filename="template_'.$item->id.'.png"',
+        ]);
+    }
+
     // ---------- Logs ----------
 
     public function logs(Request $request)

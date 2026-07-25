@@ -3,7 +3,6 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
@@ -17,9 +16,7 @@ class PasswordResetMail extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct(public string $token, public string $email)
-    {
-    }
+    public function __construct(public string $token, public string $email) {}
 
     /**
      * Get the message envelope.
@@ -36,10 +33,11 @@ class PasswordResetMail extends Mailable
      */
     public function content(): Content
     {
-        $domain = env("APP_ENV") == "local" ? "http://127.0.0.1:5173" : "https://playfabli.com";
-        $resetUrl = $domain . "/user/reset-password?token=" . $this->token;
+        $domain = env('APP_ENV') == 'local' ? 'http://127.0.0.1:5173' : 'https://playfabli.com';
+        $resetUrl = $domain.'/user/reset-password?token='.$this->token;
+
         return new Content(
-            htmlString: '<h1>Reset your password</h1><p>Click <a href="' . $resetUrl . '">this link</a> to reset your Fabli password.</p>'
+            htmlString: '<h1>Reset your password</h1><p>Click <a href="'.$resetUrl.'">this link</a> to reset your Fabli password.</p>'
         );
     }
 

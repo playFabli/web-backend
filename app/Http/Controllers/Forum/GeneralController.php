@@ -105,7 +105,7 @@ class GeneralController extends Controller
         $data = Cache::remember("forum:thread:{$threadId}:replies:page:{$page}", 30, function () use ($threadId) {
             $paginated = ForumReply::where('thread_id', $threadId)
                 ->where('is_deleted', false)
-                ->with('user:id,username') 
+                ->with('user:id,username')
                 ->orderBy('created_at', 'asc')
                 ->paginate(9)->toArray();
 
@@ -113,10 +113,10 @@ class GeneralController extends Controller
         });
 
         // $replies = new LengthAwarePaginator(
-        //     $data['data'],         
-        //     $data['total'],        
-        //     $data['per_page'],     
-        //     $data['current_page'], 
+        //     $data['data'],
+        //     $data['total'],
+        //     $data['per_page'],
+        //     $data['current_page'],
         //     ['path' => $path, 'query' => $query]
         // );
 
@@ -136,12 +136,11 @@ class GeneralController extends Controller
             ], 404);
         }
 
-        if(!$user->is_email_verified) {
+        if (! $user->is_email_verified) {
             return response()->json([
                 'message' => 'Contact support',
-            ], 422);            
+            ], 422);
         }
-
 
         $thread = ForumThread::create([
             'category_id' => $categoryId,
@@ -157,11 +156,11 @@ class GeneralController extends Controller
         QuestController::incrementProgress($user->id, 'Forum Engagement', 1);
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:{$thread->category_id}:%")
+            ->where('key', 'like', config('cache.prefix', '')."forum:threads:category:{$thread->category_id}:%")
             ->delete();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:0:%")
+            ->where('key', 'like', config('cache.prefix', '').'forum:threads:category:0:%')
             ->delete();
 
         return response()->json([
@@ -182,10 +181,10 @@ class GeneralController extends Controller
             ], 404);
         }
 
-        if(!$user->is_email_verified) {
+        if (! $user->is_email_verified) {
             return response()->json([
                 'message' => 'Contact support',
-            ], 422);            
+            ], 422);
         }
 
         $reply = ForumReply::create([
@@ -201,8 +200,8 @@ class GeneralController extends Controller
         QuestController::incrementProgress($user->id, 'Interact with other players on the forums', 1);
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:thread:{$threadId}:replies:page:%")
-            ->delete(); 
+            ->where('key', 'like', config('cache.prefix', '')."forum:thread:{$threadId}:replies:page:%")
+            ->delete();
 
         return response()->json([
             'data' => $reply,
@@ -223,15 +222,15 @@ class GeneralController extends Controller
         $thread->save();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:{$thread->category_id}:%")
+            ->where('key', 'like', config('cache.prefix', '')."forum:threads:category:{$thread->category_id}:%")
             ->delete();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:0:%")
+            ->where('key', 'like', config('cache.prefix', '').'forum:threads:category:0:%')
             ->delete();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:thread:{$thread->id}")
+            ->where('key', 'like', config('cache.prefix', '')."forum:thread:{$thread->id}")
             ->delete();
 
         return response()->json([], 200);
@@ -249,15 +248,15 @@ class GeneralController extends Controller
         $thread->save();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:{$thread->category_id}:%")
+            ->where('key', 'like', config('cache.prefix', '')."forum:threads:category:{$thread->category_id}:%")
             ->delete();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:0:%")
+            ->where('key', 'like', config('cache.prefix', '').'forum:threads:category:0:%')
             ->delete();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:thread:{$thread->id}")
+            ->where('key', 'like', config('cache.prefix', '')."forum:thread:{$thread->id}")
             ->delete();
 
         return response()->json([], 200);
@@ -275,15 +274,15 @@ class GeneralController extends Controller
         $thread->save();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:{$thread->category_id}:%")
+            ->where('key', 'like', config('cache.prefix', '')."forum:threads:category:{$thread->category_id}:%")
             ->delete();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:0:%")
+            ->where('key', 'like', config('cache.prefix', '').'forum:threads:category:0:%')
             ->delete();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:thread:{$thread->id}")
+            ->where('key', 'like', config('cache.prefix', '')."forum:thread:{$thread->id}")
             ->delete();
 
         return response()->json([], 200);
@@ -301,15 +300,15 @@ class GeneralController extends Controller
         $thread->save();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:{$thread->category_id}:%")
+            ->where('key', 'like', config('cache.prefix', '')."forum:threads:category:{$thread->category_id}:%")
             ->delete();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:threads:category:0:%")
+            ->where('key', 'like', config('cache.prefix', '').'forum:threads:category:0:%')
             ->delete();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:thread:{$thread->id}")
+            ->where('key', 'like', config('cache.prefix', '')."forum:thread:{$thread->id}")
             ->delete();
 
         return response()->json([], 200);
@@ -328,8 +327,8 @@ class GeneralController extends Controller
         $reply->save();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:thread:{$reply->thread_id}:replies:page:%")
-            ->delete(); 
+            ->where('key', 'like', config('cache.prefix', '')."forum:thread:{$reply->thread_id}:replies:page:%")
+            ->delete();
 
         return response()->json([], 200);
     }
@@ -346,8 +345,8 @@ class GeneralController extends Controller
         $reply->save();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "forum:thread:{$reply->thread_id}:replies:page:%")
-            ->delete(); 
+            ->where('key', 'like', config('cache.prefix', '')."forum:thread:{$reply->thread_id}:replies:page:%")
+            ->delete();
 
         return response()->json([], 200);
     }

@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Admin\GeneralController;
+use App\Http\Controllers\Admin\PendingTransactionsController;
 use App\Http\Controllers\User\AuthController;
+use App\Http\Controllers\User\FriendController;
 use App\Http\Controllers\User\QuestController;
 use App\Http\Controllers\User\SettingsController;
 use App\Http\Controllers\User\TradeController;
@@ -44,6 +46,7 @@ Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAdmin::class]]
 
     // Users
     Route::get('/users', [GeneralController::class, 'users']);
+    Route::get('/users/pending', [PendingTransactionsController::class, 'usersWithPendingTransactions']);
     Route::get('/users/{id}', [GeneralController::class, 'user']);
     Route::post('/users/{id}', [GeneralController::class, 'updateUser']);
     Route::delete('/users/{id}', [GeneralController::class, 'deleteUser']);
@@ -64,6 +67,7 @@ Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAdmin::class]]
     Route::post('/assets/{id}', [GeneralController::class, 'updateAsset']);
     Route::delete('/assets/{id}', [GeneralController::class, 'deleteAsset']);
     Route::post('/assets/{id}/grant', [GeneralController::class, 'grantAsset']);
+    Route::get('/assets/{id}/request-template', [GeneralController::class, 'requestTemplate']);
 
     // Moderation
     Route::get('/pending-items', [GeneralController::class, 'pendingItems']);
@@ -142,6 +146,7 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         });
 
         Route::get('/transactions', [App\Http\Controllers\User\GeneralController::class, 'transactions']);
+        Route::get('/friends/{id}', [FriendController::class, 'friends']);
         Route::get('/{id}', [App\Http\Controllers\User\GeneralController::class, 'user']);
 
         // Payments

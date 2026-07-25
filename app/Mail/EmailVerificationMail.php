@@ -3,7 +3,6 @@
 namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
@@ -17,9 +16,7 @@ class EmailVerificationMail extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct(public string $code)
-    {
-    }
+    public function __construct(public string $code) {}
 
     /**
      * Get the message envelope.
@@ -36,9 +33,10 @@ class EmailVerificationMail extends Mailable
      */
     public function content(): Content
     {
-        $domain = env("APP_ENV") == "local" ? "http://127.0.0.1:8000/api" : "https://backend.playfabli.com/api";
+        $domain = env('APP_ENV') == 'local' ? 'http://127.0.0.1:8000/api' : 'https://backend.playfabli.com/api';
+
         return new Content(
-            htmlString: '<h1>Verify your Fabli account</h1><p>Click <a href="' . $domain . '/email-verification?code=' . $this->code .'">this link</a> to verify your Fabli account.</p>'
+            htmlString: '<h1>Verify your Fabli account</h1><p>Click <a href="'.$domain.'/email-verification?code='.$this->code.'">this link</a> to verify your Fabli account.</p>'
         );
     }
 

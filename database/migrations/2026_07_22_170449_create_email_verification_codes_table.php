@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('email_verification_codes', function (Blueprint $table) {
             $table->id();
-            $table->integer("user_id");
-            $table->text("code");
+            $table->integer('user_id');
+            $table->text('code');
             $table->timestamps();
         });
     }

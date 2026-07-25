@@ -13,9 +13,9 @@ return new class extends Migration
     {
         Schema::create('user_payment_contracts', function (Blueprint $table) {
             $table->id();
-            $table->integer("user_id");
-            $table->text("contract_uuid");
-            $table->string("amount");
+            $table->integer('user_id');
+            $table->text('contract_uuid');
+            $table->string('amount');
             $table->timestamps();
         });
     }

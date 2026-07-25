@@ -437,10 +437,10 @@ class GeneralController extends Controller
 
         $user = app('token_user');
 
-        if(!$user->is_email_verified) {
+        if (! $user->is_email_verified) {
             return response()->json([
                 'message' => 'Contact support',
-            ], 422);            
+            ], 422);
         }
 
         if ($item->user_id === $user->id) {

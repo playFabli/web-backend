@@ -107,7 +107,7 @@ class GeneralController extends Controller
             ->latest()
             ->first();
 
-        if ($latestBan->expires_at == null || !Carbon::parse($latestBan->expires_at)->isPast()) {
+        if ($latestBan->expires_at == null || ! Carbon::parse($latestBan->expires_at)->isPast()) {
             return;
         }
 
@@ -163,6 +163,22 @@ class GeneralController extends Controller
         $user['friend_status'] = 'none';
 
         $fromId = is_object($from) ? $from->id : $from['id'];
+
+        // Include first 5 friends
+        $friendIds = UserFriend::where('first_id', $user['id'])
+            ->pluck('second_id')
+            ->merge(
+                UserFriend::where('second_id', $user['id'])->pluck('first_id')
+            )
+            ->take(5);
+
+        $user['friends'] = User::select(['id', 'username', 'bubble', 'last_seen_at'])
+            ->whereIn('id', $friendIds)
+            ->get()
+            ->toArray();
+
+        $user['friends_count'] = UserFriend::where('first_id', $user['id'])
+            ->count() + UserFriend::where('second_id', $user['id'])->count();
         $request = UserFriendRequest::select(['id', 'from_id', 'to_id'])
             ->where('from_id', $fromId)->where('to_id', $user['id'])
             ->orWhere('from_id', $user['id'])->where('to_id', $fromId)
@@ -925,10 +941,10 @@ class GeneralController extends Controller
         $wearing = $user->wearing;
         $colors = $user->avatarColors;
 
-        if(!$user->is_email_verified) {
+        if (! $user->is_email_verified) {
             return response()->json([
                 'message' => 'Contact support',
-            ], 422);            
+            ], 422);
         }
 
         $renderer = new PythonRenderHelper;

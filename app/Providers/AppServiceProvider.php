@@ -3,10 +3,7 @@
 namespace App\Providers;
 
 use App\Models\UserToken;
-use Closure;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Contracts\Support\Arrayable;
 
 class AppServiceProvider extends ServiceProvider
 {
