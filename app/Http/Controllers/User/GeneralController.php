@@ -107,14 +107,14 @@ class GeneralController extends Controller
             ->latest()
             ->first();
 
-        if(!Carbon::parse($latestBan->expires_at)->isPast()) {
+        if (! Carbon::parse($latestBan->expires_at)->isPast()) {
             return;
         }
 
         if ($latestBan) {
-            $user->role = "user";
+            $user->role = 'user';
             $user->save();
-            
+
             $latestBan->delete();
 
             return response()->json([
@@ -524,7 +524,7 @@ class GeneralController extends Controller
                 ->paginate($perPage, ['*'], 'page', $page);
 
             $startingRank = ($page - 1) * $perPage + 1;
-            
+
             $items = collect($paginator->items())->map(function ($user, $index) use ($startingRank) {
                 return [
                     'rank' => $startingRank + $index,
@@ -543,7 +543,7 @@ class GeneralController extends Controller
             ];
         });
 
-        $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
+        $paginated = new LengthAwarePaginator(
             $data['items'],
             $data['total'],
             $perPage,
@@ -579,10 +579,10 @@ class GeneralController extends Controller
         $page = request()->query('page', 1);
         $perPage = 20;
 
-        $cacheKey = 'browse_users:' . md5($search . ':' . $sortBy . ':' . $page);
+        $cacheKey = 'browse_users:'.md5($search.':'.$sortBy.':'.$page);
 
         $usersData = Cache::remember($cacheKey, 120, function () use ($search, $sortBy, $page, $perPage) {
-            $query = User::select(['id', 'username', 'bubble', 'rap', 'final_rap', 'created_at', 'last_seen_at']);
+            $query = User::select(['id', 'username', 'bubble', 'rap', 'final_rap', 'created_at', 'last_seen_at'])->where('role', '!=', 'banned');
 
             if ($search) {
                 $query->where('username', 'like', "%{$search}%");
@@ -593,7 +593,7 @@ class GeneralController extends Controller
                     $query->orderBy('created_at', 'asc');
                     break;
                 case 'highest_rap':
-                    $query->orderBy('final_rap', 'desc'); 
+                    $query->orderBy('final_rap', 'desc');
                     break;
                 case 'newest':
                 default:
@@ -609,7 +609,7 @@ class GeneralController extends Controller
             ];
         });
 
-        $paginated = new \Illuminate\Pagination\LengthAwarePaginator(
+        $paginated = new LengthAwarePaginator(
             $usersData['items'],
             $usersData['total'],
             $perPage,
@@ -641,9 +641,9 @@ class GeneralController extends Controller
         });
 
         $userVotes = [];
-        if ($userId && !empty($data['data'])) {
+        if ($userId && ! empty($data['data'])) {
             $petitionIds = collect($data['data'])->pluck('id')->all();
-            
+
             $userVotes = DB::table('petition_votes')
                 ->where('user_id', $userId)
                 ->whereIn('petition_id', $petitionIds)
@@ -671,7 +671,7 @@ class GeneralController extends Controller
         ]);
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "petitions:%")
+            ->where('key', 'like', config('cache.prefix', '').'petitions:%')
             ->delete();
 
         return response()->json(['data' => $petition->load('user')], 201);
@@ -1015,6 +1015,101 @@ class GeneralController extends Controller
 
         return response()->json([
             'data' => $data,
+        ], 200);
+    }
+
+    // Transactions
+
+    public function transactions()
+    {
+        $user = app('token_user');
+
+        $cacheKey = 'user:transactions:'.$user->id;
+
+        $data = Cache::remember($cacheKey, 60, function () use ($user) {
+            $stats = Transaction::selectRaw("COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0) as total, COALESCE(SUM(CASE WHEN type = 'clothing' AND status = 'approved' THEN amount ELSE 0 END), 0) as clothing, COALESCE(SUM(CASE WHEN type = 'reselling' AND status = 'approved' THEN amount ELSE 0 END), 0) as reselling, COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) as pending")
+                ->where('user_id', $user->id)
+                ->first();
+
+            return [
+                'total' => (int) $stats->total,
+                'clothing' => (int) $stats->clothing,
+                'games' => 0,
+                'reselling' => (int) $stats->reselling,
+                'pending' => (int) $stats->pending,
+            ];
+        });
+
+        return response()->json([
+            'data' => $data,
+        ], 200);
+    }
+
+    public function pendingTransactions($id)
+    {
+        $user = app('token_user');
+
+        if ($user->role !== 'admin' && $user->role !== 'moderator') {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $targetUser = User::select(['id', 'username'])->where('id', $id)->first();
+        if (! $targetUser) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $transactions = Transaction::select(['id', 'user_id', 'from_user_id', 'type', 'item_id', 'reference_id', 'amount', 'status', 'created_at'])
+            ->where('user_id', $id)
+            ->where('status', 'pending')
+            ->with('fromUser:id,username,created_at')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'data' => $transactions,
+            'user' => $targetUser,
+        ], 200);
+    }
+
+    public function verifyTransaction($id)
+    {
+        $user = app('token_user');
+
+        if ($user->role !== 'admin' && $user->role !== 'moderator') {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $transaction = Transaction::find($id);
+        if (! $transaction) {
+            return response()->json(['message' => 'Transaction not found'], 404);
+        }
+
+        $action = request()->input('action');
+
+        if ($action === 'approve') {
+            $transaction->status = 'approved';
+
+            $transaction->user->coins = $transaction->user->coins + $transaction->amount;
+            $transaction->user->save();
+        } elseif ($action === 'deny') {
+            $transaction->status = 'denied';
+        } else {
+            return response()->json(['message' => 'Invalid action'], 422);
+        }
+
+        $transaction->admin_note = request()->input('admin_note');
+        $transaction->save();
+
+        Cache::forget('user:transactions:'.$transaction->user_id);
+
+        AdminLog::create([
+            'admin_id' => $user->id,
+            'target_id' => $transaction->user_id,
+            'log' => "Transaction #{$transaction->id} {$action}d (type: {$transaction->type}, amount: {$transaction->amount})",
+        ]);
+
+        return response()->json([
+            'data' => $transaction,
         ], 200);
     }
 }

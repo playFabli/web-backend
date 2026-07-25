@@ -12,20 +12,23 @@ use App\Models\EmailVerificationCode;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
-Route::get("/email-verification", function() {
-    $code = request()->query("code", null);
-    $instance = EmailVerificationCode::where("code", $code)->first();
-    if(!$instance) return;
+Route::get('/email-verification', function () {
+    $code = request()->query('code', null);
+    $instance = EmailVerificationCode::where('code', $code)->first();
+    if (! $instance) {
+        return;
+    }
 
-    $user = User::where("id", $instance->user_id)->first();
-    if(!$user) return;
-    else if($user && $user->is_email_verified) {
-        return redirect("https://playfabli.com/user/homepage");
+    $user = User::where('id', $instance->user_id)->first();
+    if (! $user) {
+        return;
+    } elseif ($user && $user->is_email_verified) {
+        return redirect('https://playfabli.com/user/homepage');
     } else {
         $user->is_email_verified = true;
         $user->save();
 
-        return redirect("https://playfabli.com/user/homepage");
+        return redirect('https://playfabli.com/user/homepage');
     }
 });
 
@@ -67,6 +70,10 @@ Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAdmin::class]]
     Route::post('/items/{id}/approve', [GeneralController::class, 'approveItem']);
     Route::post('/items/{id}/reject', [GeneralController::class, 'rejectItem']);
 
+    // Transactions
+    Route::get('/user/{id}/pending-transactions', [App\Http\Controllers\User\GeneralController::class, 'pendingTransactions']);
+    Route::post('/transactions/{id}/verify', [App\Http\Controllers\User\GeneralController::class, 'verifyTransaction']);
+
     // Logs
     Route::get('/logs', [GeneralController::class, 'logs']);
 });
@@ -106,7 +113,7 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         Route::post('/avatar/wear/{inventoryId}', [App\Http\Controllers\User\GeneralController::class, 'wearItem']);
         Route::post('/avatar/remove/{inventoryId}', [App\Http\Controllers\User\GeneralController::class, 'removeWornItem']);
         Route::post('/avatar/colors', [App\Http\Controllers\User\GeneralController::class, 'saveAvatarColors']);
-        Route::post('/avatar/render', [App\Http\Controllers\User\GeneralController::class, 'renderAvatar'])->middleware("throttle:5,1");
+        Route::post('/avatar/render', [App\Http\Controllers\User\GeneralController::class, 'renderAvatar'])->middleware('throttle:5,1');
 
         Route::group(['prefix' => 'settings'], function () {
             Route::post('/description', [SettingsController::class, 'updateDescription']);
@@ -134,6 +141,7 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
             Route::post('/update/{id}/{state}', [TradeController::class, 'changeTradeState']);
         });
 
+        Route::get('/transactions', [App\Http\Controllers\User\GeneralController::class, 'transactions']);
         Route::get('/{id}', [App\Http\Controllers\User\GeneralController::class, 'user']);
 
         // Payments
@@ -153,11 +161,11 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         Route::get('/categories', [App\Http\Controllers\Forum\GeneralController::class, 'categories']);
 
         Route::get('/threads/{categoryId}', [App\Http\Controllers\Forum\GeneralController::class, 'threads']);
-        Route::post('/thread/{categoryId}', [App\Http\Controllers\Forum\GeneralController::class, 'createThread'])->middleware("throttle:3,1");
+        Route::post('/thread/{categoryId}', [App\Http\Controllers\Forum\GeneralController::class, 'createThread'])->middleware('throttle:3,1');
         Route::get('/thread/{id}', [App\Http\Controllers\Forum\GeneralController::class, 'thread']);
 
         Route::get('/replies/{threadId}', [App\Http\Controllers\Forum\GeneralController::class, 'replies']);
-        Route::post('/reply/{threadId}', [App\Http\Controllers\Forum\GeneralController::class, 'createReply'])->middleware("throttle:5,1");
+        Route::post('/reply/{threadId}', [App\Http\Controllers\Forum\GeneralController::class, 'createReply'])->middleware('throttle:5,1');
 
         // Admin/Moderator thread actions
         Route::post('/thread/{id}/scrub', [App\Http\Controllers\Forum\GeneralController::class, 'scrubThread'])->middleware([RouteGuardOnlyAdmin::class]);
@@ -175,11 +183,11 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         Route::get('/items/{categories?}', [App\Http\Controllers\Marketplace\GeneralController::class, 'items']);
         Route::get('/item/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'item']);
         Route::post('/item/create', [App\Http\Controllers\Marketplace\GeneralController::class, 'create']);
-        Route::post('/item/preview-render', [App\Http\Controllers\Marketplace\GeneralController::class, 'previewRender'])->middleware("throttle:6,1");
+        Route::post('/item/preview-render', [App\Http\Controllers\Marketplace\GeneralController::class, 'previewRender'])->middleware('throttle:6,1');
         Route::post('/item/update/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'updateItem']);
 
         Route::get('/comments/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'comments']);
-        Route::post('/comments/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'comment'])->middleware("throttle:10,1");
+        Route::post('/comments/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'comment'])->middleware('throttle:10,1');
 
         Route::get('/owns/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'owns']);
         Route::post('/buy/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'buy']);

@@ -44,15 +44,15 @@ class User extends Model
     public function recalculateStats()
     {
         MarketplaceItemInventory::where('user_id', $this->id)
-        ->whereHas('item', function ($query) {
-            $query->where('is_limited', true);
-        })
-        ->with('item')
-        ->chunkById(100, function ($inventories) use (&$totalRap) {
-            foreach ($inventories as $inv) {
-                $totalRap += $inv->item->final_rap;
-            }
-        });
+            ->whereHas('item', function ($query) {
+                $query->where('is_limited', true);
+            })
+            ->with('item')
+            ->chunkById(100, function ($inventories) use (&$totalRap) {
+                foreach ($inventories as $inv) {
+                    $totalRap += $inv->item->final_rap;
+                }
+            });
 
         $totalItems = DB::table('marketplace_item_inventories')
             ->where('user_id', $this->id)
@@ -144,5 +144,10 @@ class User extends Model
     public function inventory()
     {
         return $this->hasMany(MarketplaceItemInventory::class);
+    }
+
+    public function pendingTransactions()
+    {
+        return $this->hasMany(Transaction::class)->where('status', 'pending');
     }
 }

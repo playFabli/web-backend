@@ -77,7 +77,7 @@ class GeneralController extends Controller
             $usersQuery->where('role', $role);
         }
 
-        $users = $usersQuery->withCount('bans')->orderBy('created_at', 'desc')->paginate($perPage);
+        $users = $usersQuery->withCount('bans')->withCount('pendingTransactions')->orderBy('created_at', 'desc')->paginate($perPage);
 
         return response()->json($users, 200);
     }

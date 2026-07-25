@@ -39,7 +39,7 @@ class GeneralController extends Controller
 
         return response()->json([
             'data' => $categories,
-            'all_param' => $all
+            'all_param' => $all,
         ], 200);
     }
 
@@ -150,9 +150,9 @@ class GeneralController extends Controller
         }
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "marketplace:item:{$request->item_id}")
+            ->where('key', 'like', config('cache.prefix', '')."marketplace:item:{$request->item_id}")
             ->delete();
-        
+
         return response()->json([
             'data' => $item,
         ], 200);
@@ -390,7 +390,7 @@ class GeneralController extends Controller
         ]);
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "marketplace:item:{$request->item_id}:comments:page:%")
+            ->where('key', 'like', config('cache.prefix', '')."marketplace:item:{$request->item_id}:comments:page:%")
             ->delete();
 
         return response()->json($comment, 201);
@@ -481,14 +481,16 @@ class GeneralController extends Controller
             'status' => 'pending',
         ]);
 
+        Cache::forget('user:transactions:'.$item->user_id);
+
         $user->coins = $user->coins - $item->price;
         $user->save();
 
         $user->recalculateStats();
 
-        $creator = User::select(['id', 'coins'])->find($item->user_id);
-        $creator->coins = $creator->coins + $item->price;
-        $creator->save();
+        $creator = User::select(['id'])->find($item->user_id);
+        // $creator->coins = $creator->coins + $item->price;
+        // $creator->save();
 
         QuestController::incrementProgress($creator->id, 'Sell Items on Marketplace', 1);
         QuestController::incrementProgress($creator->id, 'Marketplace Tycoon', 1);
@@ -499,7 +501,7 @@ class GeneralController extends Controller
         }
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "inventory:user:{$user->id}:%")
+            ->where('key', 'like', config('cache.prefix', '')."inventory:user:{$user->id}:%")
             ->delete();
 
         return response()->json([
@@ -630,15 +632,15 @@ class GeneralController extends Controller
         ]);
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "marketplace:item:{$request->item_id}:sell_requests:page:%")
+            ->where('key', 'like', config('cache.prefix', '')."marketplace:item:{$request->item_id}:sell_requests:page:%")
             ->delete();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "marketplace:item:{$request->item_id}:owners:page:%")
+            ->where('key', 'like', config('cache.prefix', '')."marketplace:item:{$request->item_id}:owners:page:%")
             ->delete();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "inventory:user:{$user->id}:%")
+            ->where('key', 'like', config('cache.prefix', '')."inventory:user:{$user->id}:%")
             ->delete();
 
         return response()->json([
@@ -669,7 +671,7 @@ class GeneralController extends Controller
         $request->delete();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "marketplace:item:{$request->item_id}:sell_requests:page:%")
+            ->where('key', 'like', config('cache.prefix', '')."marketplace:item:{$request->item_id}:sell_requests:page:%")
             ->delete();
 
         return response()->json([
@@ -727,31 +729,36 @@ class GeneralController extends Controller
             'status' => 'pending',
         ]);
 
+        Cache::forget('user:transactions:'.$request->user->id);
+
         $user->coins = $user->coins - $request->price;
         $user->save();
 
-        $request->user->coins = $request->user->coins + $request->price;
-        $request->user->save();
+        // $request->user->coins = $request->user->coins + $request->price;
+        // $request->user->save();
 
-        
         $inventory->user_id = $user->id;
         $inventory->save();
 
         $request->user->recalculateStats();
         $user->recalculateStats();
-        
+
         $request->delete();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "marketplace:item:{$request->item_id}:sell_requests:page:%")
+            ->where('key', 'like', config('cache.prefix', '')."marketplace:item:{$request->item_id}:sell_requests:page:%")
             ->delete();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "inventory:user:{$user->id}:%")
+            ->where('key', 'like', config('cache.prefix', '')."inventory:user:{$user->id}:%")
             ->delete();
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '') . "inventory:user:{$request->user->id}:%")
+            ->where('key', 'like', config('cache.prefix', '')."inventory:user:{$request->user->id}:%")
+            ->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '')."marketplace:item:{$request->item_id}:owners:%")
             ->delete();
 
         QuestController::incrementProgress($request->user->id, 'Sell Items on Marketplace', 1);
