@@ -721,8 +721,7 @@ class GeneralController extends Controller
             ], 404);
         }
 
-        // Only allow for shirts (category_id=4) and pants (category_id=5)
-        if (! in_array($item->category_id, [4, 5])) {
+        if (! in_array($item->category->title, ["Shirts", "Pants"])) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Template is only available for shirts and pants.',
