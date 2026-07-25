@@ -136,6 +136,13 @@ class GeneralController extends Controller
             ], 404);
         }
 
+        if(!$user->is_email_verified) {
+            return response()->json([
+                'message' => 'Contact support',
+            ], 422);            
+        }
+
+
         $thread = ForumThread::create([
             'category_id' => $categoryId,
             'title' => $data['title'],
@@ -173,6 +180,12 @@ class GeneralController extends Controller
             return response()->json([
                 'message' => 'Thread not found',
             ], 404);
+        }
+
+        if(!$user->is_email_verified) {
+            return response()->json([
+                'message' => 'Contact support',
+            ], 422);            
         }
 
         $reply = ForumReply::create([

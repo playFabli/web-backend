@@ -437,6 +437,12 @@ class GeneralController extends Controller
 
         $user = app('token_user');
 
+        if(!$user->is_email_verified) {
+            return response()->json([
+                'message' => 'Contact support',
+            ], 422);            
+        }
+
         if ($item->user_id === $user->id) {
             return response()->json([
                 'message' => 'Cannot buy your own item',

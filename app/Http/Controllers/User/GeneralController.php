@@ -925,6 +925,12 @@ class GeneralController extends Controller
         $wearing = $user->wearing;
         $colors = $user->avatarColors;
 
+        if(!$user->is_email_verified) {
+            return response()->json([
+                'message' => 'Contact support',
+            ], 422);            
+        }
+
         $renderer = new PythonRenderHelper;
         $renderer->loadBlend(config('app.renderer_directory').'/scene.blend');
 
