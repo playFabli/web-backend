@@ -449,7 +449,7 @@ class GeneralController extends Controller
             'description' => ['sometimes', 'string'],
             'price' => ['sometimes', 'integer', 'min:0'],
             'rap' => ['sometimes', 'integer', 'min:0'],
-            'rarity' => ['sometimes', 'string', 'in:none,uncommon,rare,ultra_rare,legendary'],
+            'rarity' => ['sometimes', 'string', 'in:none,uncommon,rare,epic,legendary'],
             'category_id' => ['sometimes', 'exists:marketplace_categories,id'],
             'is_limited' => ['sometimes', 'boolean'],
             'stock_count' => ['sometimes', 'integer', 'min:0'],
@@ -616,10 +616,10 @@ class GeneralController extends Controller
         $offsale = filter_var($data['offsale'], FILTER_VALIDATE_BOOLEAN);
         $limited = filter_var($data['limited'], FILTER_VALIDATE_BOOLEAN);
 
-        if ($data['rarity'] == 'epic') {
-            // dumbass
-            $data['rarity'] = 'ultra_rare';
-        }
+        // if ($data['rarity'] == 'epic') {
+        //     // dumbass
+        //     $data['rarity'] = 'ultra_rare';
+        // }
 
         $item = MarketplaceItem::create([
             'user_id' => 1, // Admin-created items have user_id 0
