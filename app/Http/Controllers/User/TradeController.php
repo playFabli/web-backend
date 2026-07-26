@@ -195,11 +195,29 @@ class TradeController extends Controller
             $trade->status = 1;
             $trade->save();
 
-            // Track quest progress for completed trades
-            QuestController::incrementProgress($from->id, 'Trade Items', 1);
-            QuestController::incrementProgress($from->id, 'Trade Volume', 1);
-            QuestController::incrementProgress($user->id, 'Trade Items', 1);
-            QuestController::incrementProgress($user->id, 'Trade Volume', 1);
+            $todayStart = now()->startOfDay();
+
+            $fromHasTradedWithUserToday = Trade::where('from_id', $from->id)
+                ->where('to_id', $user->id)
+                ->where('status', 1)
+                ->where('created_at', '>=', $todayStart)
+                ->exists();
+
+            $userHasTradedWithFromToday = Trade::where('from_id', $user->id)
+                ->where('to_id', $from->id)
+                ->where('status', 1)
+                ->where('created_at', '>=', $todayStart)
+                ->exists();
+
+            if (! $fromHasTradedWithUserToday) {
+                QuestController::incrementProgress($from->id, 'Trade Items', 1);
+                QuestController::incrementProgress($from->id, 'Trade Volume', 1);
+            }
+
+            if (! $userHasTradedWithFromToday) {
+                QuestController::incrementProgress($user->id, 'Trade Items', 1);
+                QuestController::incrementProgress($user->id, 'Trade Volume', 1);
+            }
         } else {
             $trade->status = 2;
             $trade->save();

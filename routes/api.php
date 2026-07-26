@@ -195,6 +195,7 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
 
         Route::get('/comments/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'comments']);
         Route::post('/comments/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'comment'])->middleware('throttle:10,1');
+        Route::delete('/comment/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'deleteComment']);
 
         Route::get('/owns/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'owns']);
         Route::post('/buy/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'buy']);

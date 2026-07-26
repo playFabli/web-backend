@@ -498,8 +498,8 @@ class GeneralController extends Controller
         // $creator->coins = $creator->coins + $item->price;
         // $creator->save();
 
-        QuestController::incrementProgress($creator->id, 'Sell Items on Marketplace', 1);
-        QuestController::incrementProgress($creator->id, 'Marketplace Tycoon', 1);
+        // QuestController::incrementProgress($creator->id, 'Sell Items on Marketplace', 1);
+        // QuestController::incrementProgress($creator->id, 'Marketplace Tycoon', 1);
 
         if ($item->is_limited) {
             $item->stock_left = $item->stock_left - 1;
@@ -513,6 +513,32 @@ class GeneralController extends Controller
         return response()->json([
             'message' => 'Successfully bought item!',
         ], 200);
+    }
+
+    public function deleteComment($id)
+    {
+        $currentUser = app('token_user');
+
+        if (! in_array($currentUser->role, ['admin', 'moderator'])) {
+            return response()->json([
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $comment = MarketplaceComment::where('id', $id)->first();
+        if (! $comment) {
+            return response()->json([
+                'message' => 'Comment not found',
+            ], 404);
+        }
+
+        $comment->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '')."marketplace:item:{$comment->item_id}:comments:page:%")
+            ->delete();
+
+        return response()->json([], 200);
     }
 
     public function caseContents($id)

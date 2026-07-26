@@ -1146,6 +1146,11 @@ class GeneralController extends Controller
 
             $transaction->user->coins = $transaction->user->coins + $transaction->amount;
             $transaction->user->save();
+
+            if($transaction->type == "clothing" || $transaction->type == "reselling") {
+                QuestController::incrementProgress($transaction->user_id, 'Sell Items on Marketplace', 1);
+                QuestController::incrementProgress($transaction->user_id, 'Marketplace Tycoon', 1);
+            }
         } elseif ($action === 'deny') {
             $transaction->status = 'denied';
         } else {
