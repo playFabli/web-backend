@@ -95,6 +95,7 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         Route::get('/leaderboard', [App\Http\Controllers\User\GeneralController::class, 'leaderboard']);
         Route::get('/wall/{id}', [App\Http\Controllers\User\GeneralController::class, 'wall']);
         Route::post('/wall/{id}/post', [App\Http\Controllers\User\GeneralController::class, 'postToWall']);
+        Route::delete('/wall/post/{id}', [App\Http\Controllers\User\GeneralController::class, 'deleteWallPost']);
 
         Route::get('/inventory/me', [App\Http\Controllers\User\GeneralController::class, 'meInventory']);
         Route::post('/inventory/open-case/{id}', [App\Http\Controllers\User\GeneralController::class, 'openCase']);

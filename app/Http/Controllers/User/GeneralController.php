@@ -266,7 +266,39 @@ class GeneralController extends Controller
         $wall->content = $data['content'];
         $wall->save();
 
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '').'user:'.$id.':wall:page:%')
+            ->delete();
+
         return response()->json([], 201);
+    }
+
+    public function deleteWallPost($id)
+    {
+        $currentUser = app('token_user');
+
+        if (! in_array($currentUser->role, ['admin', 'moderator'])) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unauthorized',
+            ], 403);
+        }
+
+        $post = UserProfileWall::where('id', $id)->first();
+        if (! $post) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Post not found',
+            ], 404);
+        }
+
+        $post->delete();
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '').'user:'.$post->user_id.':wall:page:%')
+            ->delete();
+
+        return response()->json([], 200);
     }
 
     // Inventory
