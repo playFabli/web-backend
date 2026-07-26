@@ -562,7 +562,7 @@ class GeneralController extends Controller
 
         $page = request()->query('page', 1);
         $owners = Cache::remember("marketplace:item:{$id}:owners:page:{$page}", 60, function () use ($id) {
-            return MarketplaceItemInventory::select(['id', 'item_id', 'user_id', 'serial'])
+            return MarketplaceItemInventory::select(['id', 'item_id', 'user_id', 'serial', 'created_at'])
                 ->where('item_id', $id)
                 ->with('user:id,username')
                 ->paginate(5)
