@@ -793,8 +793,8 @@ class GeneralController extends Controller
             ->where('key', 'like', config('cache.prefix', '')."marketplace:item:{$request->item_id}:owners:%")
             ->delete();
 
-        QuestController::incrementProgress($request->user->id, 'Sell Items on Marketplace', 1);
-        QuestController::incrementProgress($request->user->id, 'Marketplace Tycoon', 1);
+        // QuestController::incrementProgress($request->user->id, 'Sell Items on Marketplace', 1);
+        // QuestController::incrementProgress($request->user->id, 'Marketplace Tycoon', 1);
 
         MarketplaceSellRequestHistory::create([
             'from_id' => $request->user_id,
