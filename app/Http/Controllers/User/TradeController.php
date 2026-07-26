@@ -37,6 +37,12 @@ class TradeController extends Controller
         $data = $request->validated();
         $user = app('token_user');
 
+        if (! $user->is_email_verified) {
+            return response()->json([
+                'message' => 'Contact support',
+            ], 422);
+        }
+
         if ($toId == $user->id) {
             return response()->json([
                 'message' => 'You cannot trade with yourself',
@@ -121,6 +127,12 @@ class TradeController extends Controller
             return response()->json([
                 'message' => 'You cannot change the state of this trade',
             ], 403);
+        }
+
+        if (! $user->is_email_verified) {
+            return response()->json([
+                'message' => 'Contact support',
+            ], 422);
         }
 
         if ($trade->status != 0) {
