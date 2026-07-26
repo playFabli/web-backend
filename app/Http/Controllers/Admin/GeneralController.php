@@ -249,6 +249,30 @@ class GeneralController extends Controller
         ], 200);
     }
 
+    public function scrubUser($id)
+    {
+        $admin = $this->getAdmin();
+        $user = User::where('id', $id)->first();
+        if (! $user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User not found',
+            ], 404);
+        }
+
+        $user->username = 'Deleted'.$user->id;
+        $user->description = "Hey, I'm new to Fabli!";
+        $user->save();
+
+        if ($admin) {
+            $this->log($admin->id, $user->id, 'Scrubbed user: username and description reset');
+        }
+
+        return response()->json([
+            'data' => $user,
+        ], 200);
+    }
+
     public function recalculateUserStats($id)
     {
         $admin = $this->getAdmin();
@@ -425,7 +449,7 @@ class GeneralController extends Controller
             'description' => ['sometimes', 'string'],
             'price' => ['sometimes', 'integer', 'min:0'],
             'rap' => ['sometimes', 'integer', 'min:0'],
-            'rarity' => ['sometimes', 'string', 'in:none,uncommon,rare,epic,legendary'],
+            'rarity' => ['sometimes', 'string', 'in:none,uncommon,rare,ultra_rare,legendary'],
             'category_id' => ['sometimes', 'exists:marketplace_categories,id'],
             'is_limited' => ['sometimes', 'boolean'],
             'stock_count' => ['sometimes', 'integer', 'min:0'],
@@ -721,7 +745,7 @@ class GeneralController extends Controller
             ], 404);
         }
 
-        if (! in_array($item->category->title, ["Shirts", "Pants"])) {
+        if (! in_array($item->category->title, ['Shirts', 'Pants'])) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Template is only available for shirts and pants.',
