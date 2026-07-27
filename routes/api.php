@@ -79,8 +79,20 @@ Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAdmin::class]]
     Route::get('/user/{id}/pending-transactions', [App\Http\Controllers\User\GeneralController::class, 'pendingTransactions']);
     Route::post('/transactions/{id}/verify', [App\Http\Controllers\User\GeneralController::class, 'verifyTransaction']);
 
+    // Collections
+    Route::get('/collections', [GeneralController::class, 'collections']);
+    Route::post('/collections', [GeneralController::class, 'createCollection']);
+    Route::post('/collections/{id}', [GeneralController::class, 'updateCollection']);
+    Route::delete('/collections/{id}', [GeneralController::class, 'deleteCollection']);
+    Route::post('/collections/{id}/add-item/{itemId}', [GeneralController::class, 'addItemToCollection']);
+    Route::post('/collections/{id}/remove-item/{itemId}', [GeneralController::class, 'removeItemFromCollection']);
+
     // Logs
     Route::get('/logs', [GeneralController::class, 'logs']);
+
+    // Site Settings
+    Route::get('/site-settings', [GeneralController::class, 'siteSettings']);
+    Route::post('/site-settings', [GeneralController::class, 'updateSiteSettings']);
 });
 
 Route::get('/user/newest', [App\Http\Controllers\User\GeneralController::class, 'newestUsers']);
@@ -100,6 +112,7 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         Route::get('/inventory/me', [App\Http\Controllers\User\GeneralController::class, 'meInventory']);
         Route::post('/inventory/open-case/{id}', [App\Http\Controllers\User\GeneralController::class, 'openCase']);
         Route::get('/inventory/{id}', [App\Http\Controllers\User\GeneralController::class, 'inventory']);
+        Route::get('/creations/{id}', [App\Http\Controllers\User\GeneralController::class, 'creations']);
 
         // Petitions
         Route::get('/petitions', [App\Http\Controllers\User\GeneralController::class, 'indexPetitions']);
@@ -187,6 +200,9 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
     Route::group(['prefix' => 'marketplace'], function () {
         Route::get('/categories/{all?}', [App\Http\Controllers\Marketplace\GeneralController::class, 'categories']);
 
+        Route::get('/profile-customization', [App\Http\Controllers\Marketplace\GeneralController::class, 'profileCustomization']);
+        Route::post('/profile-customization', [App\Http\Controllers\Marketplace\GeneralController::class, 'updateProfileCustomization']);
+
         Route::get('/items/{categories?}', [App\Http\Controllers\Marketplace\GeneralController::class, 'items']);
         Route::get('/item/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'item']);
         Route::post('/item/create', [App\Http\Controllers\Marketplace\GeneralController::class, 'create']);
@@ -207,5 +223,12 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         Route::post('/sell-request/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'createSellRequest']);
         Route::delete('/sell-request/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'deleteSellRequest']);
         Route::post('/accept-sell-request/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'acceptSellRequest']);
+
+        // Collections
+        Route::get('/collections', [App\Http\Controllers\Marketplace\GeneralController::class, 'collections']);
+        Route::get('/collections/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'collection']);
     });
+
+    // User collections
+    Route::get('/user/collections/{id}', [App\Http\Controllers\User\GeneralController::class, 'userCollections']);
 });

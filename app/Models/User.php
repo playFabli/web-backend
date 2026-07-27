@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
-#[Fillable(['username', 'email', 'password', 'coins', 'is_email_verified'])]
+#[Fillable(['username', 'email', 'password', 'coins', 'is_email_verified', 'profile_theme', 'profile_banner', 'avatar_frame'])]
 #[Hidden(['password', 'email', 'last_currency_at'])]
 class User extends Model
 {
@@ -149,5 +149,10 @@ class User extends Model
     public function pendingTransactions()
     {
         return $this->hasMany(Transaction::class)->where('status', 'pending');
+    }
+
+    public function collections()
+    {
+        return $this->belongsToMany(Collection::class, 'user_collection', 'user_id', 'collection_id');
     }
 }

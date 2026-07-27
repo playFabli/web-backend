@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Helpers\PythonRenderHelper;
 use App\Http\Requests\User\PostToWallRequest;
 use App\Models\AdminLog;
+use App\Models\Collection;
 use App\Models\MarketplaceCaseContent;
+use App\Models\MarketplaceItem;
 use App\Models\MarketplaceItemInventory;
 use App\Models\Petition;
 use App\Models\PetitionVote;
@@ -322,7 +324,7 @@ class GeneralController extends Controller
                 ->whereHas('item', function ($query) {
                     $query->where('moderation_status', 'approved');
                 })
-                ->with('item:id,title,texture_path,price,rap,rarity,category_id')
+                ->with('item:id,title,texture_path,price,rap,rarity,category_id,is_limited,stock_count,stock_left,is_offsale')
                 ->with('item.category:id,title');
 
             if ($category !== 'all') {
@@ -435,7 +437,7 @@ class GeneralController extends Controller
                 ->whereHas('item', function ($query) {
                     $query->where('moderation_status', 'approved');
                 })
-                ->with('item:id,title,price,rarity,category_id')
+                ->with('item:id,title,price,rap,rarity,category_id,texture_path,is_limited,stock_count,stock_left,is_offsale')
                 ->with('item.category:id,title');
 
             if ($category != 0) {
@@ -456,6 +458,49 @@ class GeneralController extends Controller
         });
 
         return response()->json($items);
+    }
+
+    public function creations($id)
+    {
+        $limit = request()->query('limit', 0);
+        $page = request()->query('page', 1);
+
+        $cacheKey = 'creations:user:'.$id.':limit:'.$limit.':page:'.$page;
+
+        $user = Cache::remember('user:'.$id, 60, function () use ($id) {
+            return User::select(['id'])->where('id', $id)->first()->toArray();
+        });
+
+        if (! $user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User not found',
+            ], 404);
+        }
+
+        $path = request()->url();
+        $query = request()->query();
+
+        $creations = Cache::remember($cacheKey, 30, function () use ($user, $limit) {
+            $clothingCategories = ['Shirts', 'Pants'];
+
+            $query = MarketplaceItem::select(['id', 'price', 'user_id', 'category_id', 'title', 'description', 'texture_path', 'price', 'rap', 'rarity', 'created_at'])
+                ->where('user_id', $user['id'])
+                ->where('moderation_status', 'approved')
+                ->whereHas('category', function ($q) use ($clothingCategories) {
+                    $q->whereIn('title', $clothingCategories);
+                })
+                ->with('category:id,title')
+                ->orderBy('created_at', 'desc');
+
+            if ($limit != 0) {
+                $query->limit($limit);
+            }
+
+            return $query->get()->toArray();
+        });
+
+        return response()->json($creations);
     }
 
     // Friending
@@ -1147,7 +1192,7 @@ class GeneralController extends Controller
             $transaction->user->coins = $transaction->user->coins + $transaction->amount;
             $transaction->user->save();
 
-            if($transaction->type == "clothing" || $transaction->type == "reselling") {
+            if ($transaction->type == 'clothing' || $transaction->type == 'reselling') {
                 QuestController::incrementProgress($transaction->user_id, 'Sell Items on Marketplace', 1);
                 QuestController::incrementProgress($transaction->user_id, 'Marketplace Tycoon', 1);
             }
@@ -1170,6 +1215,58 @@ class GeneralController extends Controller
 
         return response()->json([
             'data' => $transaction,
+        ], 200);
+    }
+
+    public function userCollections($id)
+    {
+        $user = User::find($id);
+        if (! $user) {
+            return response()->json([
+                'message' => 'User not found',
+            ], 404);
+        }
+
+        $collections = Collection::withCount('items')->get();
+
+        $userInventoryIds = MarketplaceItemInventory::where('user_id', $id)
+            ->pluck('item_id')
+            ->unique()
+            ->toArray();
+
+        $result = $collections->map(function ($collection) use ($userInventoryIds) {
+            $collectionItemIds = $collection->items()->pluck('marketplace_item_id')->toArray();
+            $totalItems = count($collectionItemIds);
+            $collectedItems = count(array_intersect($collectionItemIds, $userInventoryIds));
+
+            $percentage = $totalItems > 0 ? round(($collectedItems / $totalItems) * 100) : 0;
+
+            $status = 'not_started';
+            if ($collectedItems > 0 && $collectedItems < $totalItems) {
+                $status = 'in_progress';
+            } elseif ($collectedItems >= $totalItems && $totalItems > 0) {
+                $status = 'completed';
+            }
+
+            return [
+                'id' => $collection->id,
+                'name' => $collection->name,
+                'description' => $collection->description,
+                'image' => $collection->image,
+                'total_items' => $totalItems,
+                'collected_items' => $collectedItems,
+                'percentage' => $percentage,
+                'status' => $status,
+            ];
+        });
+
+        $statusOrder = ['completed' => 0, 'in_progress' => 1, 'not_started' => 2];
+        $result = $result->sortBy(function ($item) use ($statusOrder) {
+            return $statusOrder[$item['status']] ?? 3;
+        })->values();
+
+        return response()->json([
+            'data' => $result,
         ], 200);
     }
 }

@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Helpers\PythonRenderHelper;
 use App\Models\AdminLog;
+use App\Models\Collection;
 use App\Models\MarketplaceCategory;
 use App\Models\MarketplaceItem;
 use App\Models\MarketplaceItemInventory;
+use App\Models\SiteSetting;
 use App\Models\User;
 use App\Models\UserBan;
 use App\Models\UserToken;
@@ -420,7 +422,7 @@ class GeneralController extends Controller
 
     public function asset($id)
     {
-        $item = MarketplaceItem::where('id', $id)->with('user')->with('category')->first();
+        $item = MarketplaceItem::where('id', $id)->with('user')->with('category')->with('collections:id,name')->first();
         if (! $item) {
             return response()->json([
                 'status' => 'error',
@@ -784,5 +786,204 @@ class GeneralController extends Controller
         $logs = AdminLog::with('admin')->with('target')->orderBy('created_at', 'desc')->paginate($perPage);
 
         return response()->json($logs, 200);
+    }
+
+    public function siteSettings()
+    {
+        $settings = SiteSetting::find(1);
+
+        if (! $settings) {
+            $settings = SiteSetting::create([
+                'starting_currency' => 100,
+                'daily_bonus' => 10,
+                'maintenance_mode' => false,
+                'registration_open' => true,
+            ]);
+        }
+
+        return response()->json([
+            'data' => $settings,
+        ], 200);
+    }
+
+    public function updateSiteSettings(Request $request)
+    {
+        $admin = $this->getAdmin();
+        $settings = SiteSetting::find(1);
+
+        if (! $settings) {
+            $settings = SiteSetting::create([
+                'starting_currency' => 100,
+                'daily_bonus' => 10,
+                'maintenance_mode' => false,
+                'registration_open' => true,
+            ]);
+        }
+
+        $data = $request->validate([
+            'starting_currency' => ['sometimes', 'integer', 'min:0'],
+            'daily_bonus' => ['sometimes', 'integer', 'min:0'],
+            'maintenance_mode' => ['sometimes', 'boolean'],
+            'registration_open' => ['sometimes', 'boolean'],
+        ]);
+
+        $changes = [];
+        foreach ($data as $key => $value) {
+            if ($value != $settings->$key) {
+                $changes[] = "$key updated";
+            }
+        }
+
+        $settings->update($data);
+
+        if ($admin) {
+            $this->log($admin->id, 0, 'Updated site settings: '.(! empty($changes) ? implode(', ', $changes) : 'no changes'));
+        }
+
+        return response()->json([
+            'data' => $settings,
+        ], 200);
+    }
+
+    // ---------- Collections ----------
+
+    public function collections()
+    {
+        $collections = Collection::withCount('items')->orderBy('created_at', 'desc')->get();
+
+        return response()->json([
+            'data' => $collections,
+        ], 200);
+    }
+
+    public function collection($id)
+    {
+        $collection = Collection::with('items:id,title,price,rap,rarity,is_limited,stock_left,created_at')->find($id);
+
+        if (! $collection) {
+            return response()->json([
+                'message' => 'Collection not found',
+            ], 404);
+        }
+
+        return response()->json([
+            'data' => $collection,
+        ], 200);
+    }
+
+    public function createCollection(Request $request)
+    {
+        $admin = $this->getAdmin();
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'min:1', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'image' => ['nullable', 'string'],
+        ]);
+
+        $collection = Collection::create([
+            'name' => $data['name'],
+            'description' => $data['description'] ?? null,
+            'image' => $data['image'] ?? null,
+        ]);
+
+        if ($admin) {
+            $this->log($admin->id, $collection->id, "Created collection #{$collection->id} (\"".$collection->name.'")');
+        }
+
+        return response()->json([
+            'data' => $collection,
+        ], 201);
+    }
+
+    public function updateCollection($id, Request $request)
+    {
+        $admin = $this->getAdmin();
+        $collection = Collection::find($id);
+
+        if (! $collection) {
+            return response()->json([
+                'message' => 'Collection not found',
+            ], 404);
+        }
+
+        $data = $request->validate([
+            'name' => ['sometimes', 'string', 'min:1', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'image' => ['nullable', 'string'],
+        ]);
+
+        $collection->update($data);
+
+        if ($admin) {
+            $this->log($admin->id, $collection->id, "Updated collection #{$collection->id} (\"".$collection->name.'")');
+        }
+
+        return response()->json([
+            'data' => $collection,
+        ], 200);
+    }
+
+    public function deleteCollection($id)
+    {
+        $admin = $this->getAdmin();
+        $collection = Collection::find($id);
+
+        if (! $collection) {
+            return response()->json([
+                'message' => 'Collection not found',
+            ], 404);
+        }
+
+        $name = $collection->name;
+        $collection->delete();
+
+        if ($admin) {
+            $this->log($admin->id, $id, "Deleted collection #{$id} (\"".$name.'")');
+        }
+
+        return response()->json([], 200);
+    }
+
+    public function addItemToCollection($collectionId, $itemId)
+    {
+        $admin = $this->getAdmin();
+        $collection = Collection::find($collectionId);
+
+        if (! $collection) {
+            return response()->json([
+                'message' => 'Collection not found',
+            ], 404);
+        }
+
+        $collection->items()->syncWithoutDetaching([$itemId]);
+
+        if ($admin) {
+            $this->log($admin->id, $collection->id, "Added item #{$itemId} to collection #{$collection->id}");
+        }
+
+        return response()->json([
+            'data' => $collection->load('items:id,title'),
+        ], 200);
+    }
+
+    public function removeItemFromCollection($collectionId, $itemId)
+    {
+        $admin = $this->getAdmin();
+        $collection = Collection::find($collectionId);
+
+        if (! $collection) {
+            return response()->json([
+                'message' => 'Collection not found',
+            ], 404);
+        }
+
+        $collection->items()->detach($itemId);
+
+        if ($admin) {
+            $this->log($admin->id, $collection->id, "Removed item #{$itemId} from collection #{$collection->id}");
+        }
+
+        return response()->json([], 200);
     }
 }

@@ -231,13 +231,12 @@ class TradeController extends Controller
                 QuestController::incrementProgress($user->id, 'Trade Volume', 1);
             }
 
-            return response()->json([],200);
+            return response()->json([], 200);
         } else {
             $trade->status = 2;
             $trade->save();
 
-
-            return response()->json([],200);
+            return response()->json([], 200);
         }
     }
 }

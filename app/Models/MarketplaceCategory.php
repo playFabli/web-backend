@@ -12,12 +12,14 @@ class MarketplaceCategory extends Model
         'has_model',
         'has_texture',
         'parts_affected',
+        'needs_rendering',
     ];
 
     protected $casts = [
         'is_admin_only' => 'boolean',
         'has_model' => 'boolean',
         'has_texture' => 'boolean',
+        'needs_rendering' => 'boolean',
     ];
 
     /**

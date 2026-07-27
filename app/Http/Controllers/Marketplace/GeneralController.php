@@ -10,6 +10,7 @@ use App\Http\Requests\Marketplace\CreateItemRequest;
 use App\Http\Requests\Marketplace\CreateSellRequest;
 use App\Http\Requests\Marketplace\PreviewRenderRequest;
 use App\Http\Requests\Marketplace\UpdateItemRequest;
+use App\Models\Collection;
 use App\Models\MarketplaceCaseContent;
 use App\Models\MarketplaceCategory;
 use App\Models\MarketplaceComment;
@@ -26,7 +27,6 @@ class GeneralController extends Controller
 {
     public function categories($all = 1)
     {
-
         $categories = Cache::remember("marketplace:categories:all:{$all}", 3600, function () use ($all) {
             if (! $all) {
                 return MarketplaceCategory::where('is_admin_only', 0)
@@ -40,6 +40,63 @@ class GeneralController extends Controller
         return response()->json([
             'data' => $categories,
             'all_param' => $all,
+        ], 200);
+    }
+
+    public function profileCustomization()
+    {
+        $user = app('token_user');
+
+        $profileThemes = [
+            ['id' => 'default', 'name' => 'Default', 'preview' => '/themes/default.png'],
+            ['id' => 'dark', 'name' => 'Dark', 'preview' => '/themes/dark.png'],
+            ['id' => 'light', 'name' => 'Light', 'preview' => '/themes/light.png'],
+        ];
+
+        $profileBanners = [
+            ['id' => 'none', 'name' => 'None', 'preview' => null],
+            ['id' => 'gradient1', 'name' => 'Gradient 1', 'preview' => '/banners/gradient1.png'],
+            ['id' => 'gradient2', 'name' => 'Gradient 2', 'preview' => '/banners/gradient2.png'],
+            ['id' => 'pattern1', 'name' => 'Pattern 1', 'preview' => '/banners/pattern1.png'],
+        ];
+
+        $avatarFrames = [
+            ['id' => 'none', 'name' => 'None', 'preview' => null],
+            ['id' => 'gold', 'name' => 'Gold', 'preview' => '/frames/gold.png'],
+            ['id' => 'silver', 'name' => 'Silver', 'preview' => '/frames/silver.png'],
+            ['id' => 'bronze', 'name' => 'Bronze', 'preview' => '/frames/bronze.png'],
+        ];
+
+        return response()->json([
+            'data' => [
+                'profile_theme' => $user->profile_theme ?? 'default',
+                'profile_banner' => $user->profile_banner ?? 'none',
+                'avatar_frame' => $user->avatar_frame ?? 'none',
+                'available_themes' => $profileThemes,
+                'available_banners' => $profileBanners,
+                'available_frames' => $avatarFrames,
+            ],
+        ], 200);
+    }
+
+    public function updateProfileCustomization(\Illuminate\Http\Request $request)
+    {
+        $user = app('token_user');
+
+        $validated = $request->validate([
+            'profile_theme' => 'nullable|string|max:255',
+            'profile_banner' => 'nullable|string|max:255',
+            'avatar_frame' => 'nullable|string|max:255',
+        ]);
+
+        $user->update($validated);
+
+        return response()->json([
+            'data' => [
+                'profile_theme' => $user->profile_theme,
+                'profile_banner' => $user->profile_banner,
+                'avatar_frame' => $user->avatar_frame,
+            ],
         ], 200);
     }
 
@@ -277,10 +334,11 @@ class GeneralController extends Controller
 
         $query = request()->query('query', '');
         $page = request()->query('page', 1);
+        $collectionId = request()->query('collection_id');
 
-        $cacheKey = 'marketplace:items:categories:'.implode('_', $categories).":price:{$priceMin}:{$priceMax}:rap:{$rapMin}:{$rapMax}:query:".md5($query).":page:{$page}";
+        $cacheKey = 'marketplace:items:categories:'.implode('_', $categories).":price:{$priceMin}:{$priceMax}:rap:{$rapMin}:{$rapMax}:query:".md5($query).":collection:{$collectionId}:page:{$page}";
 
-        $items = Cache::remember($cacheKey, 60, function () use ($categories, $priceMin, $priceMax, $rapMin, $rapMax, $query) {
+        $items = Cache::remember($cacheKey, 60, function () use ($categories, $priceMin, $priceMax, $rapMin, $rapMax, $query, $collectionId) {
             $paginator = MarketplaceItem::select([
                 'id', 'user_id', 'category_id', 'title', 'price', 'rap', 'rarity',
                 'is_limited', 'stock_count', 'stock_left', 'is_offsale', 'created_at',
@@ -293,7 +351,15 @@ class GeneralController extends Controller
                 ->where(function ($q) use ($query) {
                     $q->where('title', 'like', "%{$query}%")
                         ->orWhere('description', 'like', "%{$query}%");
-                })
+                });
+
+            if ($collectionId) {
+                $paginator = $paginator->whereHas('collections', function ($q) use ($collectionId) {
+                    $q->where('collections.id', $collectionId);
+                });
+            }
+
+            $paginator = $paginator
                 ->with('user:id,username')
                 ->with('category:id,title')
                 ->orderBy('created_at', 'desc')
@@ -322,6 +388,7 @@ class GeneralController extends Controller
                 ->where('is_deleted', false)
                 ->with('user:id,username')
                 ->with('category:id,title')
+                ->with('collections:id,name')
                 ->with(['comments' => function ($query) {
                     $query->select(['id', 'item_id', 'user_id', 'content', 'created_at'])
                         ->orderBy('created_at', 'desc');
@@ -807,5 +874,29 @@ class GeneralController extends Controller
         return response()->json([
             'data' => 'success',
         ]);
+    }
+
+    public function collections()
+    {
+        $collections = Collection::withCount('items')->get();
+
+        return response()->json([
+            'data' => $collections,
+        ], 200);
+    }
+
+    public function collection($id)
+    {
+        $collection = Collection::with('items:id,title,price,rap,rarity,is_limited,stock_left,created_at')->find($id);
+
+        if (! $collection) {
+            return response()->json([
+                'message' => 'Collection not found',
+            ], 404);
+        }
+
+        return response()->json([
+            'data' => $collection,
+        ], 200);
     }
 }

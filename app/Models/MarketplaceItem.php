@@ -46,6 +46,11 @@ class MarketplaceItem extends Model
         return $this->hasMany(MarketplaceComment::class, 'item_id');
     }
 
+    public function collections()
+    {
+        return $this->belongsToMany(Collection::class, 'collection_item', 'marketplace_item_id', 'collection_id');
+    }
+
     public function getSoldCountAttribute()
     {
         return $this->inventories()->count();
