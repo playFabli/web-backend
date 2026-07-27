@@ -5,6 +5,7 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Models\MarketplaceCategory;
 use App\Models\MarketplaceItem;
+use App\Models\MarketplaceItemInventory;
 use App\Models\UserProfileItem;
 use Illuminate\Support\Facades\Cache;
 
@@ -16,7 +17,18 @@ class ProfileController extends Controller
             ->with('item:id,title,texture_path,price,rap,rarity,category_id')
             ->with('item.category:id,title')
             ->orderBy('sort_order')
-            ->get();
+            ->get()
+            ->map(function ($profileItem) use ($userId) {
+                $data = $profileItem->toArray();
+                // Get serial from the user's inventory for this item
+                $inventory = MarketplaceItemInventory::select('serial')
+                    ->where('user_id', $userId)
+                    ->where('item_id', $profileItem->item_id)
+                    ->first();
+                $data['serial'] = $inventory?->serial;
+
+                return $data;
+            });
 
         return response()->json([
             'data' => $profileItems,
