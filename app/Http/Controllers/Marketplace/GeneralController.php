@@ -42,7 +42,7 @@ class GeneralController extends Controller
             'all_param' => $all,
         ], 200);
     }
-    
+
     public function previewRender(PreviewRenderRequest $request)
     {
         $data = $request->validated();
@@ -151,6 +151,11 @@ class GeneralController extends Controller
 
         DB::table('cache')
             ->where('key', 'like', config('cache.prefix', '')."marketplace:item:{$request->item_id}")
+            ->delete();
+
+        // Invalidate marketplace items cache
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '').'marketplace:items:%')
             ->delete();
 
         return response()->json([
@@ -277,9 +282,9 @@ class GeneralController extends Controller
 
         $query = request()->query('query', '');
         $page = request()->query('page', 1);
-        $collectionId = request()->query('collection_id');
+        $collectionId = request()->query('collection_id', null);
 
-        $cacheKey = 'marketplace:items:categories:'.implode('_', $categories).":price:{$priceMin}:{$priceMax}:rap:{$rapMin}:{$rapMax}:query:".md5($query).":collection:{$collectionId}:page:{$page}";
+        $cacheKey = 'marketplace:items:categories:'.implode('_', $categories).":price:{$priceMin}:{$priceMax}:rap:{$rapMin}:{$rapMax}:query:".md5($query).':collection:'.($collectionId ?? 'null').":page:{$page}";
 
         $items = Cache::remember($cacheKey, 60, function () use ($categories, $priceMin, $priceMax, $rapMin, $rapMax, $query, $collectionId) {
             $paginator = MarketplaceItem::select([
@@ -292,8 +297,10 @@ class GeneralController extends Controller
                 ->whereBetween('price', [$priceMin, $priceMax])
                 ->whereBetween('rap', [$rapMin, $rapMax])
                 ->where(function ($q) use ($query) {
-                    $q->where('title', 'like', "%{$query}%")
-                        ->orWhere('description', 'like', "%{$query}%");
+                    if (! empty($query)) {
+                        $q->where('title', 'like', "%{$query}%")
+                            ->orWhere('description', 'like', "%{$query}%");
+                    }
                 });
 
             if ($collectionId) {
@@ -498,6 +505,11 @@ class GeneralController extends Controller
         ]);
 
         Cache::forget('user:transactions:'.$item->user_id);
+
+        // Invalidate marketplace items cache
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '').'marketplace:items:%')
+            ->delete();
 
         $user->coins = $user->coins - $item->price;
         $user->save();
@@ -801,6 +813,11 @@ class GeneralController extends Controller
 
         DB::table('cache')
             ->where('key', 'like', config('cache.prefix', '')."marketplace:item:{$request->item_id}:owners:%")
+            ->delete();
+
+        // Invalidate marketplace items cache
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '').'marketplace:items:%')
             ->delete();
 
         // QuestController::incrementProgress($request->user->id, 'Sell Items on Marketplace', 1);

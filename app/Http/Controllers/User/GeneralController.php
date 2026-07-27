@@ -462,7 +462,7 @@ class GeneralController extends Controller
 
     public function creations($id)
     {
-        $limit = request()->query('limit', 0);
+        $limit = request()->query('limit', 12);
         $page = request()->query('page', 1);
 
         $cacheKey = 'creations:user:'.$id.':limit:'.$limit.':page:'.$page;
@@ -481,24 +481,29 @@ class GeneralController extends Controller
         $path = request()->url();
         $query = request()->query();
 
-        $creations = Cache::remember($cacheKey, 30, function () use ($user, $limit) {
+        $data = Cache::remember($cacheKey, 30, function () use ($user, $limit, $page) {
             $clothingCategories = ['Shirts', 'Pants'];
 
-            $query = MarketplaceItem::select(['id', 'price', 'user_id', 'category_id', 'title', 'description', 'texture_path', 'price', 'rap', 'rarity', 'created_at'])
+            $paginated = MarketplaceItem::select(['id', 'price', 'user_id', 'category_id', 'title', 'description', 'texture_path', 'price', 'rap', 'rarity', 'created_at'])
                 ->where('user_id', $user['id'])
                 ->where('moderation_status', 'approved')
                 ->whereHas('category', function ($q) use ($clothingCategories) {
                     $q->whereIn('title', $clothingCategories);
                 })
                 ->with('category:id,title')
-                ->orderBy('created_at', 'desc');
+                ->orderBy('created_at', 'desc')
+                ->paginate($limit, ['*'], 'page', $page);
 
-            if ($limit != 0) {
-                $query->limit($limit);
-            }
-
-            return $query->get()->toArray();
+            return $paginated->toArray();
         });
+
+        $creations = new LengthAwarePaginator(
+            $data['data'],
+            $data['total'],
+            $data['per_page'],
+            $data['current_page'],
+            ['path' => $path, 'query' => $query]
+        );
 
         return response()->json($creations);
     }
