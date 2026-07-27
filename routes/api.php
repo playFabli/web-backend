@@ -200,9 +200,6 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
     Route::group(['prefix' => 'marketplace'], function () {
         Route::get('/categories/{all?}', [App\Http\Controllers\Marketplace\GeneralController::class, 'categories']);
 
-        Route::get('/profile-customization', [App\Http\Controllers\Marketplace\GeneralController::class, 'profileCustomization']);
-        Route::post('/profile-customization', [App\Http\Controllers\Marketplace\GeneralController::class, 'updateProfileCustomization']);
-
         Route::get('/items/{categories?}', [App\Http\Controllers\Marketplace\GeneralController::class, 'items']);
         Route::get('/item/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'item']);
         Route::post('/item/create', [App\Http\Controllers\Marketplace\GeneralController::class, 'create']);

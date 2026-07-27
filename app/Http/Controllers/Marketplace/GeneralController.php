@@ -42,64 +42,7 @@ class GeneralController extends Controller
             'all_param' => $all,
         ], 200);
     }
-
-    public function profileCustomization()
-    {
-        $user = app('token_user');
-
-        $profileThemes = [
-            ['id' => 'default', 'name' => 'Default', 'preview' => '/themes/default.png'],
-            ['id' => 'dark', 'name' => 'Dark', 'preview' => '/themes/dark.png'],
-            ['id' => 'light', 'name' => 'Light', 'preview' => '/themes/light.png'],
-        ];
-
-        $profileBanners = [
-            ['id' => 'none', 'name' => 'None', 'preview' => null],
-            ['id' => 'gradient1', 'name' => 'Gradient 1', 'preview' => '/banners/gradient1.png'],
-            ['id' => 'gradient2', 'name' => 'Gradient 2', 'preview' => '/banners/gradient2.png'],
-            ['id' => 'pattern1', 'name' => 'Pattern 1', 'preview' => '/banners/pattern1.png'],
-        ];
-
-        $avatarFrames = [
-            ['id' => 'none', 'name' => 'None', 'preview' => null],
-            ['id' => 'gold', 'name' => 'Gold', 'preview' => '/frames/gold.png'],
-            ['id' => 'silver', 'name' => 'Silver', 'preview' => '/frames/silver.png'],
-            ['id' => 'bronze', 'name' => 'Bronze', 'preview' => '/frames/bronze.png'],
-        ];
-
-        return response()->json([
-            'data' => [
-                'profile_theme' => $user->profile_theme ?? 'default',
-                'profile_banner' => $user->profile_banner ?? 'none',
-                'avatar_frame' => $user->avatar_frame ?? 'none',
-                'available_themes' => $profileThemes,
-                'available_banners' => $profileBanners,
-                'available_frames' => $avatarFrames,
-            ],
-        ], 200);
-    }
-
-    public function updateProfileCustomization(\Illuminate\Http\Request $request)
-    {
-        $user = app('token_user');
-
-        $validated = $request->validate([
-            'profile_theme' => 'nullable|string|max:255',
-            'profile_banner' => 'nullable|string|max:255',
-            'avatar_frame' => 'nullable|string|max:255',
-        ]);
-
-        $user->update($validated);
-
-        return response()->json([
-            'data' => [
-                'profile_theme' => $user->profile_theme,
-                'profile_banner' => $user->profile_banner,
-                'avatar_frame' => $user->avatar_frame,
-            ],
-        ], 200);
-    }
-
+    
     public function previewRender(PreviewRenderRequest $request)
     {
         $data = $request->validated();
