@@ -30,11 +30,13 @@ class GeneralController extends Controller
         $categories = Cache::remember("marketplace:categories:all:{$all}", 3600, function () use ($all) {
             if (! $all) {
                 return MarketplaceCategory::where('is_admin_only', 0)
+                    ->orderBy('sort_index')
+                    ->orderBy('id')
                     ->get()
                     ->toArray();
             }
 
-            return MarketplaceCategory::all()->toArray();
+            return MarketplaceCategory::orderBy('sort_index')->orderBy('id')->get()->toArray();
         });
 
         return response()->json([

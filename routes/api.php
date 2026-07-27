@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\GeneralController;
 use App\Http\Controllers\Admin\PendingTransactionsController;
 use App\Http\Controllers\User\AuthController;
 use App\Http\Controllers\User\FriendController;
+use App\Http\Controllers\User\ProfileController;
 use App\Http\Controllers\User\QuestController;
 use App\Http\Controllers\User\SettingsController;
 use App\Http\Controllers\User\TradeController;
@@ -79,6 +80,13 @@ Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAdmin::class]]
     Route::get('/user/{id}/pending-transactions', [App\Http\Controllers\User\GeneralController::class, 'pendingTransactions']);
     Route::post('/transactions/{id}/verify', [App\Http\Controllers\User\GeneralController::class, 'verifyTransaction']);
 
+    // Categories
+    Route::get('/categories', [GeneralController::class, 'categories']);
+    Route::get('/categories/{id}', [GeneralController::class, 'category']);
+    Route::post('/categories', [GeneralController::class, 'createCategory']);
+    Route::post('/categories/{id}', [GeneralController::class, 'updateCategory']);
+    Route::delete('/categories/{id}', [GeneralController::class, 'deleteCategory']);
+
     // Collections
     Route::get('/collections', [GeneralController::class, 'collections']);
     Route::post('/collections', [GeneralController::class, 'createCollection']);
@@ -115,10 +123,10 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         Route::get('/creations/{id}', [App\Http\Controllers\User\GeneralController::class, 'creations']);
 
         // Profile wall items
-        Route::get('/profile/items/{userId}', [App\Http\Controllers\User\ProfileController::class, 'items']);
-        Route::post('/profile/items/{userId}', [App\Http\Controllers\User\ProfileController::class, 'saveItems']);
-        Route::get('/profile/available-items/{userId}', [App\Http\Controllers\User\ProfileController::class, 'availableItems']);
-        Route::get('/profile/categories', [App\Http\Controllers\User\ProfileController::class, 'categories']);
+        Route::get('/profile/items/{userId}', [ProfileController::class, 'items']);
+        Route::post('/profile/items/{userId}', [ProfileController::class, 'saveItems']);
+        Route::get('/profile/available-items/{userId}', [ProfileController::class, 'availableItems']);
+        Route::get('/profile/categories', [ProfileController::class, 'categories']);
 
         // Petitions
         Route::get('/petitions', [App\Http\Controllers\User\GeneralController::class, 'indexPetitions']);

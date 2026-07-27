@@ -13,6 +13,7 @@ class MarketplaceCategory extends Model
         'has_texture',
         'parts_affected',
         'needs_rendering',
+        'sort_index',
     ];
 
     protected $casts = [
@@ -20,6 +21,7 @@ class MarketplaceCategory extends Model
         'has_model' => 'boolean',
         'has_texture' => 'boolean',
         'needs_rendering' => 'boolean',
+        'sort_index' => 'integer',
     ];
 
     /**

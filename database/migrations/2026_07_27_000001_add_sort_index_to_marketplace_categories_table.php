@@ -2,27 +2,27 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
         Schema::table('marketplace_categories', function (Blueprint $table) {
-            $table->boolean('needs_rendering')->default(true)->after('parts_affected');
+            $table->unsignedInteger('sort_index')->default(0)->after('id');
         });
-
-        // Set needs_rendering to false for the 3 specific categories
-        DB::table('marketplace_categories')
-            ->whereIn('title', ['Hats', 'Faces', 'Gear'])
-            ->update(['needs_rendering' => false]);
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
         Schema::table('marketplace_categories', function (Blueprint $table) {
-            $table->dropColumn('needs_rendering');
+            $table->dropColumn('sort_index');
         });
     }
 };

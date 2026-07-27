@@ -14,6 +14,8 @@ use App\Models\User;
 use App\Models\UserBan;
 use App\Models\UserToken;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class GeneralController extends Controller
 {
@@ -589,9 +591,18 @@ class GeneralController extends Controller
             'stock_left' => ['sometimes', 'integer', 'min:0'],
             'offsale' => ['sometimes', 'in:true,false,1,0'],
             'moderation_status' => ['required', 'string', 'in:pending,approved,unapproved'],
+            'display_image' => ['nullable', 'file', 'image', 'max:2048'],
         ]);
 
         $category = MarketplaceCategory::find($data['category_id']);
+
+        // Validate display image is provided for categories that don't need rendering
+        if (! $category->needs_rendering && ! $request->hasFile('display_image')) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Display image is required for categories without rendering.',
+            ], 422);
+        }
 
         $texturePath = null;
         if ($request->hasFile('texture')) {
@@ -630,6 +641,7 @@ class GeneralController extends Controller
             'description' => $data['description'] ?? '',
             'texture_path' => $texturePath,
             'model_path' => $modelPath,
+            'display_image_path' => null,
             'price' => $data['price'],
             'rap' => $data['rap'],
             'rarity' => $data['rarity'],
@@ -639,6 +651,15 @@ class GeneralController extends Controller
             'is_offsale' => $offsale ?? false,
             'moderation_status' => $data['moderation_status'],
         ]);
+
+        // Handle display image for categories that don't need rendering
+        if (! $category->needs_rendering && $request->hasFile('display_image')) {
+            $file = $request->file('display_image');
+            $storageDir = rtrim(config('app.storage_directory'), '/\\').DIRECTORY_SEPARATOR.'items';
+            $file->move($storageDir, $item->id.'.png');
+            $item->display_image_path = 'items/'.$item->id.'.png';
+            $item->save();
+        }
 
         // Render the item thumbnail
         $this->renderItem($item);
@@ -843,6 +864,134 @@ class GeneralController extends Controller
         return response()->json([
             'data' => $settings,
         ], 200);
+    }
+
+    // ---------- Categories ----------
+
+    public function categories()
+    {
+        $categories = MarketplaceCategory::orderBy('sort_index')->orderBy('id')->get();
+
+        return response()->json([
+            'data' => $categories,
+        ], 200);
+    }
+
+    public function category($id)
+    {
+        $category = MarketplaceCategory::find($id);
+        if (! $category) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Category not found',
+            ], 404);
+        }
+
+        return response()->json([
+            'data' => $category,
+        ], 200);
+    }
+
+    public function createCategory(Request $request)
+    {
+        $admin = $this->getAdmin();
+
+        $data = $request->validate([
+            'title' => ['required', 'string', 'min:1', 'max:255'],
+            'is_admin_only' => ['sometimes', 'boolean'],
+            'has_model' => ['sometimes', 'boolean'],
+            'has_texture' => ['sometimes', 'boolean'],
+            'parts_affected' => ['nullable', 'string', 'max:255'],
+            'needs_rendering' => ['sometimes', 'boolean'],
+            'sort_index' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $maxSort = MarketplaceCategory::max('sort_index');
+
+        $category = MarketplaceCategory::create([
+            'title' => $data['title'],
+            'is_admin_only' => $data['is_admin_only'] ?? true,
+            'has_model' => $data['has_model'] ?? false,
+            'has_texture' => $data['has_texture'] ?? false,
+            'parts_affected' => $data['parts_affected'] ?? null,
+            'needs_rendering' => $data['needs_rendering'] ?? false,
+            'sort_index' => $data['sort_index'] ?? ($maxSort + 1),
+        ]);
+
+        if ($admin) {
+            $this->log($admin->id, $category->id, "Created category #{$category->id} (\"".$category->title.'")');
+        }
+
+        return response()->json([
+            'data' => $category,
+        ], 201);
+    }
+
+    public function updateCategory($id, Request $request)
+    {
+        $admin = $this->getAdmin();
+        $category = MarketplaceCategory::find($id);
+        if (! $category) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Category not found',
+            ], 404);
+        }
+
+        $data = $request->validate([
+            'title' => ['sometimes', 'string', 'min:1', 'max:255'],
+            'is_admin_only' => ['sometimes', 'boolean'],
+            'has_model' => ['sometimes', 'boolean'],
+            'has_texture' => ['sometimes', 'boolean'],
+            'parts_affected' => ['nullable', 'string', 'max:255'],
+            'needs_rendering' => ['sometimes', 'boolean'],
+            'sort_index' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $changes = [];
+        foreach ($data as $key => $value) {
+            if ($value != $category->$key) {
+                $changes[] = "$key updated";
+            }
+        }
+
+        $category->update($data);
+
+        // Clear category cache
+        Cache::forget('marketplace:categories:all:1');
+        Cache::forget('marketplace:categories:all:0');
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '').'marketplace:categories:%')
+            ->delete();
+
+        if ($admin) {
+            $this->log($admin->id, $category->id, "Updated category #{$category->id} (\"".$category->title.'"): '.(! empty($changes) ? implode(', ', $changes) : 'no changes'));
+        }
+
+        return response()->json([
+            'data' => $category,
+        ], 200);
+    }
+
+    public function deleteCategory($id)
+    {
+        $admin = $this->getAdmin();
+        $category = MarketplaceCategory::find($id);
+        if (! $category) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Category not found',
+            ], 404);
+        }
+
+        $name = $category->title;
+        $category->delete();
+
+        if ($admin) {
+            $this->log($admin->id, $id, "Deleted category #{$id} (\"".$name.'")');
+        }
+
+        return response()->json([], 200);
     }
 
     // ---------- Collections ----------

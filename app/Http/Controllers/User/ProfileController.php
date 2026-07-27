@@ -68,7 +68,7 @@ class ProfileController extends Controller
             ->toArray();
 
         $itemsQuery = MarketplaceItem::select([
-            'id', 'title', 'texture_path', 'price', 'rap', 'rarity', 'category_id'
+            'id', 'title', 'texture_path', 'price', 'rap', 'rarity', 'category_id',
         ])
             ->where('moderation_status', 'approved')
             ->whereHas('inventories', function ($query) use ($userId) {
@@ -107,8 +107,9 @@ class ProfileController extends Controller
     public function categories()
     {
         $categories = Cache::remember('marketplace:categories:all:0', 3600, function () {
-            return MarketplaceCategory::
-                get(['id', 'title'])
+            return MarketplaceCategory::orderBy('sort_index')
+                ->orderBy('id')
+                ->get(['id', 'title'])
                 ->toArray();
         });
 

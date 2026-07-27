@@ -13,6 +13,7 @@ class MarketplaceItem extends Model
         'description',
         'texture_path',
         'model_path',
+        'display_image_path',
         'price',
         'rap',
         'rarity',
