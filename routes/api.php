@@ -114,6 +114,12 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         Route::get('/inventory/{id}', [App\Http\Controllers\User\GeneralController::class, 'inventory']);
         Route::get('/creations/{id}', [App\Http\Controllers\User\GeneralController::class, 'creations']);
 
+        // Profile wall items
+        Route::get('/profile/items/{userId}', [App\Http\Controllers\User\ProfileController::class, 'items']);
+        Route::post('/profile/items/{userId}', [App\Http\Controllers\User\ProfileController::class, 'saveItems']);
+        Route::get('/profile/available-items/{userId}', [App\Http\Controllers\User\ProfileController::class, 'availableItems']);
+        Route::get('/profile/categories', [App\Http\Controllers\User\ProfileController::class, 'categories']);
+
         // Petitions
         Route::get('/petitions', [App\Http\Controllers\User\GeneralController::class, 'indexPetitions']);
         Route::post('/petitions', [App\Http\Controllers\User\GeneralController::class, 'createPetition']);
