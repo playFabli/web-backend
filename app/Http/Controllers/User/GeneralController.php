@@ -147,7 +147,7 @@ class GeneralController extends Controller
 
         $user = Cache::remember($cacheKey, 60, function () use ($id) {
             return User::select([
-                'id', 'username', 'description', 'bubble', 'level', 'exp', 'coins', 'role',
+                'id', 'username', 'description', 'bubble', 'level', 'exp', 'coins', 'profile_theme_id', 'role',
                 'final_rap', 'is_email_verified', 'last_seen_at', 'created_at',
             ])
                 ->where('id', $id)

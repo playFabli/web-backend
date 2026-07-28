@@ -16,6 +16,7 @@ use App\Models\UserToken;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rules\File;
 
 class GeneralController extends Controller
 {
@@ -592,6 +593,7 @@ class GeneralController extends Controller
             'offsale' => ['sometimes', 'in:true,false,1,0'],
             'moderation_status' => ['required', 'string', 'in:pending,approved,unapproved'],
             'display_image' => ['nullable', 'file', 'image', 'max:2048'],
+            'stylesheet' => ['nullable', File::default()->extensions(['css', 'txt'])->max(2048)],
         ]);
 
         $category = MarketplaceCategory::find($data['category_id']);
@@ -661,8 +663,21 @@ class GeneralController extends Controller
             $item->save();
         }
 
+        // Handle stylesheet upload
+        if ($request->hasFile('stylesheet')) {
+            $file = $request->file('stylesheet');
+            $storageDir = rtrim(config('app.storage_directory'), '/\\').DIRECTORY_SEPARATOR.'stylesheets';
+            if (! is_dir($storageDir)) {
+                mkdir($storageDir, 0755, true);
+            }
+            $file->move($storageDir, $item->id.'.css');
+            $item->stylesheet_path = 'stylesheets/'.$item->id.'.css';
+            $item->save();
+        }
+
         // Render the item thumbnail
-        $this->renderItem($item);
+        if($category->needs_rendering)
+            $this->renderItem($item);
 
         if ($admin) {
             $this->log($admin->id, 0, 'Created asset #'.$item->id.' ("'.$item->title.'")');

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Helpers\PythonRenderHelper;
+use App\Models\MarketplaceItem;
 use App\Models\User;
 use App\Models\UserPaymentContract;
 use Illuminate\Support\Facades\Route;
@@ -34,6 +35,23 @@ Route::post('/payments/webhook', function () {
             return response()->json(['All good'], 200);
         }
     }
+});
+
+Route::get('/storage/stylesheets/{id}.css', function ($id) {
+    $item = MarketplaceItem::where('id', $id)->first();
+    if (! $item || ! $item->stylesheet_path) {
+        return response()->noContent(404);
+    }
+
+    $path = config('app.storage_directory').'/'.$item->stylesheet_path;
+    if (! file_exists($path)) {
+        return response()->noContent(404);
+    }
+
+    return response()->file($path, [
+        'Content-Type' => 'text/css',
+        'Content-Disposition' => 'inline; filename="'.$id.'.css"',
+    ]);
 });
 
 Route::get('/render-user', function () {

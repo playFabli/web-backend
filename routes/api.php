@@ -128,6 +128,10 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         Route::get('/profile/available-items/{userId}', [ProfileController::class, 'availableItems']);
         Route::get('/profile/categories', [ProfileController::class, 'categories']);
 
+        // Profile customization (themes & avatar frames)
+        Route::get('/profile/customization', [ProfileController::class, 'customization']);
+        Route::post('/profile/customization', [ProfileController::class, 'saveCustomization']);
+
         // Petitions
         Route::get('/petitions', [App\Http\Controllers\User\GeneralController::class, 'indexPetitions']);
         Route::post('/petitions', [App\Http\Controllers\User\GeneralController::class, 'createPetition']);

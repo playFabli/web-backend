@@ -129,4 +129,100 @@ class ProfileController extends Controller
             'data' => $categories,
         ], 200);
     }
+
+    /**
+     * Get the user's owned customization items (themes and avatar frames).
+     */
+    public function customization()
+    {
+        $user = app('token_user');
+
+        // Find category IDs for "Profile Themes" and "Avatar Frames" by title
+        $themeCategory = MarketplaceCategory::where('title', 'Profile Themes')->first();
+        $frameCategory = MarketplaceCategory::where('title', 'Avatar Frames')->first();
+
+        $themes = collect();
+        $frames = collect();
+
+        // Get owned items in the Profile Themes category
+        if ($themeCategory) {
+            $themes = MarketplaceItem::select(['id', 'title', 'texture_path', 'price', 'rap', 'rarity', 'stylesheet_path'])
+                ->where('category_id', $themeCategory->id)
+                ->where('moderation_status', 'approved')
+                ->whereHas('inventories', function ($query) use ($user) {
+                    $query->where('user_id', $user->id);
+                })
+                ->get();
+        }
+
+        // Get owned items in the Avatar Frames category
+        if ($frameCategory) {
+            $frames = MarketplaceItem::select(['id', 'title', 'texture_path', 'price', 'rap', 'rarity'])
+                ->where('category_id', $frameCategory->id)
+                ->where('moderation_status', 'approved')
+                ->whereHas('inventories', function ($query) use ($user) {
+                    $query->where('user_id', $user->id);
+                })
+                ->get();
+        }
+
+        return response()->json([
+            'data' => [
+                'profile_theme_id' => $user->profile_theme_id,
+                'avatar_frame_id' => $user->avatar_frame_id,
+                'themes' => $themes,
+                'frames' => $frames,
+            ],
+        ], 200);
+    }
+
+    /**
+     * Save the user's customization selections (theme and avatar frame).
+     */
+    public function saveCustomization()
+    {
+        $user = app('token_user');
+
+        $profileThemeId = (int) request()->input('profile_theme_id', 0);
+        $avatarFrameId = (int) request()->input('avatar_frame_id', 0);
+
+        // Validate that the user owns the selected items (if not default 0)
+        if ($profileThemeId > 0) {
+            $ownsTheme = MarketplaceItemInventory::where('user_id', $user->id)
+                ->where('item_id', $profileThemeId)
+                ->exists();
+
+            if (! $ownsTheme) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'You do not own the selected profile theme.',
+                ], 422);
+            }
+        }
+
+        if ($avatarFrameId > 0) {
+            $ownsFrame = MarketplaceItemInventory::where('user_id', $user->id)
+                ->where('item_id', $avatarFrameId)
+                ->exists();
+
+            if (! $ownsFrame) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'You do not own the selected avatar frame.',
+                ], 422);
+            }
+        }
+
+        $user->profile_theme_id = $profileThemeId;
+        $user->avatar_frame_id = $avatarFrameId;
+        $user->save();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'profile_theme_id' => $user->profile_theme_id,
+                'avatar_frame_id' => $user->avatar_frame_id,
+            ],
+        ], 200);
+    }
 }
