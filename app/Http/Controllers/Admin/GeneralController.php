@@ -461,16 +461,34 @@ class GeneralController extends Controller
             'stock_left' => ['sometimes', 'integer', 'min:0'],
             'is_offsale' => ['sometimes', 'boolean'],
             'moderation_status' => ['sometimes', 'string', 'in:pending,approved,unapproved'],
+            'stylesheet' => ['nullable', File::default()->extensions(['css', 'txt'])->max(2048)],
         ]);
 
         $changes = [];
         foreach ($data as $key => $value) {
+            if ($key === 'stylesheet') {
+                continue;
+            }
             if ($value != $item->$key) {
                 $changes[] = "$key changed";
             }
         }
 
         $item->update($data);
+
+        // Handle stylesheet reupload for Profile Themes and Avatar Frames
+        $category = $item->category ?? MarketplaceCategory::find($item->category_id);
+        if ($request->hasFile('stylesheet') && $category && in_array($category->title, ['Profile Themes', 'Avatar Frames'])) {
+            $file = $request->file('stylesheet');
+            $storageDir = rtrim(config('app.storage_directory'), '/\\').DIRECTORY_SEPARATOR.'stylesheets';
+            if (! is_dir($storageDir)) {
+                mkdir($storageDir, 0755, true);
+            }
+            $file->move($storageDir, $item->id.'.css');
+            $item->stylesheet_path = 'stylesheets/'.$item->id.'.css';
+            $item->save();
+            $changes[] = 'stylesheet updated';
+        }
 
         if ($admin) {
             $this->log($admin->id, $item->user_id, "Updated asset #$id (\"".$item->title.'"): '.(! empty($changes) ? implode(', ', $changes) : 'no changes'));
@@ -485,7 +503,9 @@ class GeneralController extends Controller
     {
         $admin = $this->getAdmin();
         $item = MarketplaceItem::where('id', $id)->first();
+
         if (! $item) {
+
             return response()->json([
                 'status' => 'error',
                 'message' => 'Item not found',
