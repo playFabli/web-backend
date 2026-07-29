@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Helpers\PythonRenderHelper;
 use App\Models\AdminLog;
+use App\Models\AvatarPoseDefinition;
 use App\Models\Collection;
 use App\Models\MarketplaceCategory;
 use App\Models\MarketplaceItem;
@@ -614,6 +615,7 @@ class GeneralController extends Controller
             'moderation_status' => ['required', 'string', 'in:pending,approved,unapproved'],
             'display_image' => ['nullable', 'file', 'image', 'max:2048'],
             'stylesheet' => ['nullable', File::default()->extensions(['css', 'txt'])->max(2048)],
+            'definition' => ['nullable', 'string'],
         ]);
 
         $category = MarketplaceCategory::find($data['category_id']);
@@ -695,9 +697,18 @@ class GeneralController extends Controller
             $item->save();
         }
 
+        // Handle avatar pose definition for "Avatar Poses" category
+        if ($category->title === 'Avatar Poses' && ! empty($data['definition'])) {
+            AvatarPoseDefinition::create([
+                'item_id' => $item->id,
+                'definition' => $data['definition'],
+            ]);
+        }
+
         // Render the item thumbnail
-        if($category->needs_rendering)
+        if ($category->needs_rendering) {
             $this->renderItem($item);
+        }
 
         if ($admin) {
             $this->log($admin->id, 0, 'Created asset #'.$item->id.' ("'.$item->title.'")');
@@ -719,12 +730,15 @@ class GeneralController extends Controller
         $whiteColor = '#FFFFFF';
 
         // Load the 3D model if the category has one and model was uploaded
-        if ($category->has_model && $item->model_path) {
+        if ($category->has_model) {
             $modelPath = config('app.renderer_directory').'/'.$item->model_path;
             $renderer->loadObj($item->id, $modelPath, $category->has_texture);
 
             $texturePath = config('app.renderer_directory').'/'.$item->texture_path;
             $renderer->addTexture($item->id, $item->id.'_tex', $texturePath);
+
+            $renderer->addRawCode("obj_{$item->id}.parent = bpy.data.objects['{$category->parts_affected}']");
+            $renderer->addRawCode("obj_{$item->id}.matrix_parent_inverse = bpy.data.objects['{$category->parts_affected}'].matrix_world.inverted()");
         }
 
         // Apply texture if the category has one and the item has a texture path
@@ -733,6 +747,20 @@ class GeneralController extends Controller
             $texturePath = config('app.renderer_directory').'/'.$item->texture_path;
             foreach ($parts as $part) {
                 $renderer->addTexture($part, $item->id.'_tex', $texturePath);
+            }
+        }
+
+        if ($category->title == 'Avatar Poses') {
+            $definition = AvatarPoseDefinition::where('item_id', $item->id)->first();
+            $parts = explode(';', $definition['definition']);
+
+            foreach ($parts as $part) {
+                $data = explode(':', $part);
+                // [0] - Part name
+                // [1] - Part X, [2] - Part Y, [3] - Part Z
+                // [4] - Part Rot X, [5] - Part Rot Y, [6] - Part Rot Z
+                $renderer->setPosition($data[0], ['x' => $data[1], 'y' => $data[2], 'z' => $data[3]]);
+                $renderer->rotate($data[0], ['x' => $data[4], 'y' => $data[5], 'z' => $data[6]]);
             }
         }
 

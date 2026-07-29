@@ -13,6 +13,8 @@ return new class extends Migration
     {
         Schema::create('avatar_pose_definitions', function (Blueprint $table) {
             $table->id();
+            $table->integer('item_id');
+            $table->text('definition');
             $table->timestamps();
         });
     }

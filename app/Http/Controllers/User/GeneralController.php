@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Helpers\PythonRenderHelper;
 use App\Http\Requests\User\PostToWallRequest;
 use App\Models\AdminLog;
+use App\Models\AvatarPoseDefinition;
 use App\Models\Collection;
 use App\Models\MarketplaceCaseContent;
 use App\Models\MarketplaceItem;
@@ -147,7 +148,7 @@ class GeneralController extends Controller
 
         $user = Cache::remember($cacheKey, 60, function () use ($id) {
             return User::select([
-                'id', 'username', 'description', 'bubble', 'level', 'exp', 'coins', 'profile_theme_id', 'role',
+                'id', 'username', 'description', 'bubble', 'level', 'exp', 'coins', 'profile_theme_id', 'avatar_frame_id', 'role',
                 'final_rap', 'is_email_verified', 'last_seen_at', 'created_at',
             ])
                 ->where('id', $id)
@@ -950,7 +951,7 @@ class GeneralController extends Controller
         $inventory = MarketplaceItemInventory::select(['id', 'item_id', 'user_id'])
             ->where('id', $inventoryId)
             ->where('user_id', $user->id)
-            ->with('item')
+            ->with('item.category')
             ->first();
 
         if (! $inventory) {
@@ -968,6 +969,23 @@ class GeneralController extends Controller
             return response()->json([
                 'message' => 'Item is already equipped',
             ], 422);
+        }
+
+        // Enforce one-item-per-category limit for "Face" and "Avatar Poses"
+        $restrictedCategories = ['Face', 'Avatar Poses'];
+        if (in_array($inventory->item->category->title, $restrictedCategories)) {
+            $alreadyWearingCategory = UserWearing::select(['user_wearing.id'])
+                ->join('marketplace_items', 'user_wearing.item_id', '=', 'marketplace_items.id')
+                ->join('marketplace_categories', 'marketplace_items.category_id', '=', 'marketplace_categories.id')
+                ->where('user_wearing.user_id', $user->id)
+                ->where('marketplace_categories.title', $inventory->item->category->title)
+                ->first();
+
+            if ($alreadyWearingCategory) {
+                return response()->json([
+                    'message' => 'You can only wear one '.$inventory->item->category->title.' item at a time',
+                ], 422);
+            }
         }
 
         UserWearing::create([
@@ -1056,6 +1074,10 @@ class GeneralController extends Controller
 
                 $texturePath = config('app.renderer_directory').'/'.$item->texture_path;
                 $renderer->addTexture($item->id, $item->id.'_tex', $texturePath);
+
+                $renderer->addRawCode("obj_{$item->id}.parent = bpy.data.objects['{$category->parts_affected}']");
+                $renderer->addRawCode("obj_{$item->id}.matrix_parent_inverse = bpy.data.objects['{$category->parts_affected}'].matrix_world.inverted()");
+
             }
 
             if ($category->has_texture && $item->texture_path) {
@@ -1066,6 +1088,20 @@ class GeneralController extends Controller
                         $hasFace = true;
                     }
                     $renderer->addTexture($part, $item->id.'_tex', $texturePath);
+                }
+            }
+
+            if ($category->title == 'Avatar Poses') {
+                $definition = AvatarPoseDefinition::where('item_id', $item->id)->first();
+                $parts = explode(';', $definition['definition']);
+
+                foreach ($parts as $part) {
+                    $data = explode(':', $part);
+                    // [0] - Part name
+                    // [1] - Part X, [2] - Part Y, [3] - Part Z
+                    // [4] - Part Rot X, [5] - Part Rot Y, [6] - Part Rot Z
+                    $renderer->setPosition($data[0], ['x' => $data[1], 'y' => $data[2], 'z' => $data[3]]);
+                    $renderer->rotate($data[0], ['x' => $data[4], 'y' => $data[5], 'z' => $data[6]]);
                 }
             }
         }
