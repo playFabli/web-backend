@@ -601,7 +601,7 @@ class GeneralController extends Controller
             ], 404);
         }
 
-        if ($category->category->title != 'Boxes') {
+        if ($category["category"]["title"] != 'Boxes') {
             return response()->json([
                 'message' => 'This item is not a box.',
             ], 422);

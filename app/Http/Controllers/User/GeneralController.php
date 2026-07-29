@@ -385,7 +385,7 @@ class GeneralController extends Controller
         }
 
         $caseContents = MarketplaceCaseContent::where('case_id', $caseInventory->item_id)
-            ->with('item:id,title,sold_count,price')
+            ->with('item:id,title,price')
             ->get();
 
         if ($caseContents->isEmpty()) {
@@ -394,7 +394,24 @@ class GeneralController extends Controller
             ], 422);
         }
 
-        $wonContent = $caseContents->random();
+        $totalWeight = $caseContents->sum('chance');
+
+        $randomWeight = floatval(mt_rand() / mt_getrandmax()) * $totalWeight;
+
+        $wonContent = null;
+        $currentWeight = 0;
+
+        foreach ($caseContents as $content) {
+            $currentWeight += $content->chance;
+            if ($randomWeight <= $currentWeight) {
+                $wonContent = $content;
+                break;
+            }
+        }
+
+        if (!$wonContent) {
+            $wonContent = $caseContents->last();
+        }
 
         $serial = $wonContent->item->sold_count + 1;
         $wonInventory = MarketplaceItemInventory::create([

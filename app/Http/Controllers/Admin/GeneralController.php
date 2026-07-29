@@ -495,13 +495,16 @@ class GeneralController extends Controller
             'rap' => ['sometimes', 'integer', 'min:0'],
             'rarity' => ['sometimes', 'string', 'in:none,uncommon,rare,epic,legendary'],
             'category_id' => ['sometimes', 'exists:marketplace_categories,id'],
-            'is_limited' => ['sometimes', 'boolean'],
+            'is_limited' => ['sometimes', 'in:true,false,0,1'],
             'stock_count' => ['sometimes', 'integer', 'min:0'],
             'stock_left' => ['sometimes', 'integer', 'min:0'],
-            'is_offsale' => ['sometimes', 'boolean'],
+            'is_offsale' => ['sometimes', 'in:true,false,0,1'],
             'moderation_status' => ['sometimes', 'string', 'in:pending,approved,unapproved'],
             'stylesheet' => ['nullable', File::default()->extensions(['css', 'txt'])->max(2048)],
         ]);
+
+        $data["is_limited"] = filter_var($data["is_limited"], FILTER_VALIDATE_BOOLEAN);
+        $data["is_offsale"] = filter_var($data["is_offsale"], FILTER_VALIDATE_BOOLEAN);
 
         $changes = [];
         foreach ($data as $key => $value) {
@@ -654,6 +657,7 @@ class GeneralController extends Controller
             'display_image' => ['nullable', 'file', 'image', 'max:2048'],
             'stylesheet' => ['nullable', File::default()->extensions(['css', 'txt'])->max(2048)],
             'definition' => ['nullable', 'string'],
+            'unboxing_video' => ['nullable', 'file', 'mimes:webm', 'max:2048'],
         ]);
 
         $category = MarketplaceCategory::find($data['category_id']);
@@ -665,7 +669,6 @@ class GeneralController extends Controller
                 'message' => 'Display image is required for categories without rendering.',
             ], 422);
         }
-
 
         $texturePath = null;
         if ($request->hasFile('texture')) {
@@ -744,6 +747,16 @@ class GeneralController extends Controller
             ]);
         }
 
+        // Handle unboxing video for "Boxes" category
+        if ($request->hasFile('unboxing_video') && $category->title === 'Boxes') {
+            $file = $request->file('unboxing_video');
+            $unboxingDir = rtrim(config('app.storage_directory'), '/\\').DIRECTORY_SEPARATOR.'unboxing';
+            if (! is_dir($unboxingDir)) {
+                mkdir($unboxingDir, 0755, true);
+            }
+            $file->move($unboxingDir, $item->id.'.webm');
+        }
+
         // Render the item thumbnail
         if ($category->needs_rendering) {
             $this->renderItem($item);
@@ -768,12 +781,11 @@ class GeneralController extends Controller
         // All colors should be pure white for item rendering
         $whiteColor = '#FFFFFF';
 
-        
-        if($category->title == 'Gears') {
-            $posXyz = ["x" => 0.913747, "y" => -2.35409, "z" => 0.836074];
-            $rotXyz = ["x" => "-0.000009", "y" => "-90", "z" => "0"];
-            $renderer->setPosition("left_arm", $posXyz);
-            $renderer->rotate("left_arm", $rotXyz);
+        if ($category->title == 'Gears') {
+            $posXyz = ['x' => 0.913747, 'y' => -2.35409, 'z' => 0.836074];
+            $rotXyz = ['x' => '-0.000009', 'y' => '-90', 'z' => '0'];
+            $renderer->setPosition('left_arm', $posXyz);
+            $renderer->rotate('left_arm', $rotXyz);
         }
 
         // Load the 3D model if the category has one and model was uploaded
