@@ -9,6 +9,7 @@ use App\Models\ActivityLog;
 use App\Models\AdminLog;
 use App\Models\AvatarPoseDefinition;
 use App\Models\Collection;
+use App\Models\ForumThread;
 use App\Models\MarketplaceCaseContent;
 use App\Models\MarketplaceItem;
 use App\Models\MarketplaceItemInventory;
@@ -25,6 +26,7 @@ use App\Models\UserPaymentContract;
 use App\Models\UserProfileWall;
 use App\Models\UserWearing;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -1078,11 +1080,11 @@ class GeneralController extends Controller
             $item = $wearingItem->item;
             $category = $item->category;
 
-            if($category->title == 'Gears') {
-                $posXyz = ["x" => 0.913747, "y" => -2.35409, "z" => 0.836074];
-                $rotXyz = ["x" => -0.000009, "y" => -90, "z" => 0];
-                $renderer->setPosition("left_arm", $posXyz);
-                $renderer->rotate("left_arm", $rotXyz);
+            if ($category->title == 'Gears') {
+                $posXyz = ['x' => 0.913747, 'y' => -2.35409, 'z' => 0.836074];
+                $rotXyz = ['x' => -0.000009, 'y' => -90, 'z' => 0];
+                $renderer->setPosition('left_arm', $posXyz);
+                $renderer->rotate('left_arm', $rotXyz);
             }
 
             if ($category->has_model) {
@@ -1282,13 +1284,66 @@ class GeneralController extends Controller
     public function activityFeed()
     {
         $activities = ActivityLog::select(['id', 'user_id', 'type', 'description', 'metadata', 'created_at'])
-            ->with('user:id,username')
+            ->with('user:id,username,avatar_frame_id')
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get();
 
         return response()->json([
             'data' => $activities,
+        ], 200);
+    }
+
+    /**
+     * Return the 4 newest approved items belonging to admin-only categories.
+     *
+     * @return JsonResponse
+     */
+    public function newestItems()
+    {
+        $items = Cache::remember('homepage:newest_items', 60, function () {
+            return MarketplaceItem::select([
+                'id', 'user_id', 'category_id', 'title', 'price', 'rap', 'rarity',
+                'is_limited', 'stock_left', 'created_at',
+            ])
+                ->where('is_deleted', false)
+                ->where('moderation_status', 'approved')
+                ->whereHas('category', function ($q) {
+                    $q->where('is_admin_only', true);
+                })
+                ->with('user:id,username')
+                ->with('category:id,title')
+                ->orderBy('created_at', 'desc')
+                ->limit(4)
+                ->get()
+                ->toArray();
+        });
+
+        return response()->json([
+            'data' => $items,
+        ], 200);
+    }
+
+    /**
+     * Return the 4 newest forum threads (posts).
+     *
+     * @return JsonResponse
+     */
+    public function newestPosts()
+    {
+        $threads = Cache::remember('homepage:newest_posts', 60, function () {
+            return ForumThread::select(['id', 'category_id', 'title', 'user_id', 'is_pinned', 'created_at'])
+                ->where('is_deleted', false)
+                ->with('user:id,username')
+                ->with('category:id,name')
+                ->orderBy('created_at', 'desc')
+                ->limit(4)
+                ->get()
+                ->toArray();
+        });
+
+        return response()->json([
+            'data' => $threads,
         ], 200);
     }
 

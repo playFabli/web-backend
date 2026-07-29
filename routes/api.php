@@ -181,6 +181,8 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
 
         Route::get('/transactions', [App\Http\Controllers\User\GeneralController::class, 'transactions']);
         Route::get('/activity-feed', [App\Http\Controllers\User\GeneralController::class, 'activityFeed']);
+        Route::get('/newest-items', [App\Http\Controllers\User\GeneralController::class, 'newestItems']);
+        Route::get('/newest-posts', [App\Http\Controllers\User\GeneralController::class, 'newestPosts']);
         Route::get('/friends/{id}', [FriendController::class, 'friends']);
         Route::get('/{id}', [App\Http\Controllers\User\GeneralController::class, 'user']);
 
