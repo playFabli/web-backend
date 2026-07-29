@@ -10,6 +10,7 @@ use App\Http\Requests\Marketplace\CreateItemRequest;
 use App\Http\Requests\Marketplace\CreateSellRequest;
 use App\Http\Requests\Marketplace\PreviewRenderRequest;
 use App\Http\Requests\Marketplace\UpdateItemRequest;
+use App\Models\ActivityLog;
 use App\Models\Collection;
 use App\Models\MarketplaceCaseContent;
 use App\Models\MarketplaceCategory;
@@ -199,6 +200,16 @@ class GeneralController extends Controller
         $inventory->save();
 
         $this->renderItem($item);
+
+        // Log activity for item creation
+        $item->load('category');
+        ActivityLog::log(
+            $user->id,
+            'item_created',
+            "created a new {$item->category->title} item: {$item->title}",
+            $item,
+            ['item_title' => $item->title, 'category' => $item->category->title]
+        );
 
         $prefix = config('cache.prefix', '');
 
@@ -533,6 +544,15 @@ class GeneralController extends Controller
         DB::table('cache')
             ->where('key', 'like', config('cache.prefix', '')."inventory:user:{$user->id}:%")
             ->delete();
+
+        // Log activity for purchase
+        ActivityLog::log(
+            $user->id,
+            'purchase',
+            "bought {$item->title}",
+            $item,
+            ['item_title' => $item->title, 'price' => $item->price]
+        );
 
         return response()->json([
             'message' => 'Successfully bought item!',

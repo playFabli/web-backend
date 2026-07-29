@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\User\QuestController;
 use App\Http\Requests\Forum\CreateReplyRequest;
 use App\Http\Requests\Forum\CreateThreadRequest;
+use App\Models\ActivityLog;
 use App\Models\ForumCategory;
 use App\Models\ForumReply;
 use App\Models\ForumThread;
@@ -154,6 +155,15 @@ class GeneralController extends Controller
         // Track quest progress for forum posts
         QuestController::incrementProgress($user->id, 'Post on Forums', 1);
         QuestController::incrementProgress($user->id, 'Forum Engagement', 1);
+
+        // Log activity for forum post
+        ActivityLog::log(
+            $user->id,
+            'forum_post',
+            "posted a new forum thread: {$thread->title}",
+            $thread,
+            ['thread_title' => $thread->title, 'category_id' => $categoryId]
+        );
 
         DB::table('cache')
             ->where('key', 'like', config('cache.prefix', '')."forum:threads:category:{$thread->category_id}:%")

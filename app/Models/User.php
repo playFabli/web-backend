@@ -111,10 +111,20 @@ class User extends Model
         $expNeeded = $this->expNeeded();
 
         if ($this->exp + $amount >= $expNeeded) {
+            $oldLevel = $this->level;
             $this->level = $this->level + 1;
             $this->exp = 0;
 
             $this->save();
+
+            // Log level up activity
+            ActivityLog::log(
+                $this->id,
+                'level_up',
+                "leveled up from {$oldLevel} to {$this->level}",
+                null,
+                ['old_level' => $oldLevel, 'new_level' => $this->level]
+            );
         } else {
             $this->exp = $this->exp + $amount;
             $this->save();

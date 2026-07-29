@@ -5,6 +5,7 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Http\Helpers\PythonRenderHelper;
 use App\Http\Requests\User\PostToWallRequest;
+use App\Models\ActivityLog;
 use App\Models\AdminLog;
 use App\Models\AvatarPoseDefinition;
 use App\Models\Collection;
@@ -406,6 +407,15 @@ class GeneralController extends Controller
         QuestController::incrementProgress($user->id, 'Open Cases', 1);
         QuestController::incrementProgress($user->id, 'Open Many Cases', 1);
         QuestController::incrementProgress($user->id, 'Case Opener', 1);
+
+        // Log activity for opening a case
+        ActivityLog::log(
+            $user->id,
+            'case_open',
+            "opened a case and won {$wonContent->item->title}",
+            $wonContent->item,
+            ['case_name' => $caseInventory->item->title, 'won_item' => $wonContent->item->title]
+        );
 
         return response()->json([
             'data' => $wonInventory->load('item', 'item.category'),
@@ -1068,6 +1078,13 @@ class GeneralController extends Controller
             $item = $wearingItem->item;
             $category = $item->category;
 
+            if($category->title == 'Gears') {
+                $posXyz = ["x" => 0.913747, "y" => -2.35409, "z" => 0.836074];
+                $rotXyz = ["x" => -0.000009, "y" => -90, "z" => 0];
+                $renderer->setPosition("left_arm", $posXyz);
+                $renderer->rotate("left_arm", $rotXyz);
+            }
+
             if ($category->has_model) {
                 $modelPath = config('app.renderer_directory').'/'.$item->model_path;
                 $renderer->loadObj($item->id, $modelPath, $category->has_texture);
@@ -1259,6 +1276,19 @@ class GeneralController extends Controller
 
         return response()->json([
             'data' => $transaction,
+        ], 200);
+    }
+
+    public function activityFeed()
+    {
+        $activities = ActivityLog::select(['id', 'user_id', 'type', 'description', 'metadata', 'created_at'])
+            ->with('user:id,username')
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        return response()->json([
+            'data' => $activities,
         ], 200);
     }
 

@@ -44,6 +44,7 @@ Route::group(['prefix' => 'auth', 'middleware' => [RouteGuardOnlyGuest::class]],
 
 Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAdmin::class]], function () {
     Route::get('/dashboard', [GeneralController::class, 'dashboard']);
+    Route::get('/dau-history', [GeneralController::class, 'dauHistory']);
 
     // Users
     Route::get('/users', [GeneralController::class, 'users']);
@@ -179,6 +180,7 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         });
 
         Route::get('/transactions', [App\Http\Controllers\User\GeneralController::class, 'transactions']);
+        Route::get('/activity-feed', [App\Http\Controllers\User\GeneralController::class, 'activityFeed']);
         Route::get('/friends/{id}', [FriendController::class, 'friends']);
         Route::get('/{id}', [App\Http\Controllers\User\GeneralController::class, 'user']);
 

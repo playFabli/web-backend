@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\QuestDefinition;
 use App\Models\User;
 use App\Models\UserQuest;
@@ -105,6 +106,15 @@ class QuestController extends Controller
 
         if ($quest->current_value >= $quest->required_value) {
             $quest->is_completed = true;
+
+            // Log quest completion activity
+            ActivityLog::log(
+                $userId,
+                'quest_complete',
+                "completed the quest: {$quest->name}",
+                null,
+                ['quest_name' => $quest->name, 'quest_type' => $quest->type]
+            );
         }
 
         $quest->save();

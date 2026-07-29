@@ -7,6 +7,7 @@ use App\Http\Helpers\PythonRenderHelper;
 use App\Models\AdminLog;
 use App\Models\AvatarPoseDefinition;
 use App\Models\Collection;
+use App\Models\DailyActiveUser;
 use App\Models\MarketplaceCategory;
 use App\Models\MarketplaceItem;
 use App\Models\MarketplaceItemInventory;
@@ -48,6 +49,9 @@ class GeneralController extends Controller
         $totalLogs = AdminLog::count();
         $recentLogs = AdminLog::with('admin')->with('target')->orderBy('created_at', 'desc')->limit(10)->get();
 
+        // DAU: users who have been active today (UTC)
+        $dailyActiveUsers = User::where('last_seen_at', '>=', now()->startOfDay())->count();
+
         return response()->json([
             'data' => [
                 'total_users' => $totalUsers,
@@ -56,8 +60,42 @@ class GeneralController extends Controller
                 'pending_items' => $pendingItems,
                 'total_bans' => $totalBans,
                 'total_logs' => $totalLogs,
+                'daily_active_users' => $dailyActiveUsers,
                 'recent_logs' => $recentLogs,
             ],
+        ], 200);
+    }
+
+    public function dauHistory()
+    {
+        // Include today's live count plus last 30 days from the table
+        $today = now()->startOfDay();
+        $todayCount = User::where('last_seen_at', '>=', $today)->count();
+
+        $history = DailyActiveUser::where('date', '>=', now()->subDays(30))
+            ->orderBy('date', 'asc')
+            ->get()
+            ->keyBy('date');
+
+        // Build array of last 30 days
+        $dates = [];
+        for ($i = 30; $i >= 0; $i--) {
+            $date = now()->subDays($i)->startOfDay()->toDateString();
+            if ($i === 0) {
+                $dates[] = [
+                    'date' => $date,
+                    'count' => $todayCount,
+                ];
+            } else {
+                $dates[] = [
+                    'date' => $date,
+                    'count' => $history->get($date)?->count ?? 0,
+                ];
+            }
+        }
+
+        return response()->json([
+            'data' => $dates,
         ], 200);
     }
 
@@ -628,6 +666,7 @@ class GeneralController extends Controller
             ], 422);
         }
 
+
         $texturePath = null;
         if ($request->hasFile('texture')) {
             $file = $request->file('texture');
@@ -728,6 +767,14 @@ class GeneralController extends Controller
 
         // All colors should be pure white for item rendering
         $whiteColor = '#FFFFFF';
+
+        
+        if($category->title == 'Gears') {
+            $posXyz = ["x" => 0.913747, "y" => -2.35409, "z" => 0.836074];
+            $rotXyz = ["x" => "-0.000009", "y" => "-90", "z" => "0"];
+            $renderer->setPosition("left_arm", $posXyz);
+            $renderer->rotate("left_arm", $rotXyz);
+        }
 
         // Load the 3D model if the category has one and model was uploaded
         if ($category->has_model) {
