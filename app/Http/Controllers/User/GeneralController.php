@@ -324,6 +324,9 @@ class GeneralController extends Controller
                 ->whereHas('item', function ($query) {
                     $query->where('moderation_status', 'approved');
                 })
+                ->whereHas('item.category', function ($query) {
+                    $query->where('needs_rendering', true);
+                })
                 ->with('item:id,title,texture_path,price,rap,rarity,category_id,is_limited,stock_count,stock_left,is_offsale')
                 ->with('item.category:id,title');
 
