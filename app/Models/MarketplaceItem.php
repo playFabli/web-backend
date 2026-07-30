@@ -22,11 +22,20 @@ class MarketplaceItem extends Model
         'stock_count',
         'stock_left',
         'is_offsale',
+        'is_timed',
+        'timed_end_at',
         'is_deleted',
         'moderation_status',
     ];
 
     protected $appends = ['sold_count', 'comment_count', 'final_rap'];
+
+    protected function casts(): array
+    {
+        return [
+            'timed_end_at' => 'datetime',
+        ];
+    }
 
     public function user()
     {

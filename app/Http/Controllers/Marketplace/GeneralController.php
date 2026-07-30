@@ -302,7 +302,7 @@ class GeneralController extends Controller
         $items = Cache::remember($cacheKey, 60, function () use ($categories, $priceMin, $priceMax, $rapMin, $rapMax, $query, $collectionId) {
             $paginator = MarketplaceItem::select([
                 'id', 'user_id', 'category_id', 'title', 'price', 'rap', 'rarity',
-                'is_limited', 'stock_count', 'stock_left', 'is_offsale', 'created_at',
+                'is_limited', 'stock_count', 'stock_left', 'is_offsale', 'is_timed', 'timed_end_at', 'created_at',
             ])
                 ->whereIn('category_id', $categories)
                 ->where('is_deleted', false)
@@ -344,7 +344,7 @@ class GeneralController extends Controller
         $item = Cache::remember("marketplace:item:{$id}", 60, function () use ($id) {
             return MarketplaceItem::select([
                 'id', 'user_id', 'category_id', 'title', 'description', 'price', 'rap', 'rarity',
-                'texture_path', 'is_limited', 'is_offsale', 'stock_count', 'stock_left',
+                'texture_path', 'is_limited', 'is_timed', 'timed_end_at', 'is_offsale', 'stock_count', 'stock_left',
                 'moderation_status', 'created_at', 'updated_at',
             ])
                 ->where('id', $id)
@@ -601,7 +601,7 @@ class GeneralController extends Controller
             ], 404);
         }
 
-        if ($category["category"]["title"] != 'Boxes') {
+        if ($category['category']['title'] != 'Boxes') {
             return response()->json([
                 'message' => 'This item is not a box.',
             ], 422);

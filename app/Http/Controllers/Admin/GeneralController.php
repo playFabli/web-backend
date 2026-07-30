@@ -499,12 +499,19 @@ class GeneralController extends Controller
             'stock_count' => ['sometimes', 'integer', 'min:0'],
             'stock_left' => ['sometimes', 'integer', 'min:0'],
             'is_offsale' => ['sometimes', 'in:true,false,0,1'],
+            'is_timed' => ['sometimes', 'in:true,false,0,1'],
+            'timed_end_at' => ['nullable', 'date'],
             'moderation_status' => ['sometimes', 'string', 'in:pending,approved,unapproved'],
             'stylesheet' => ['nullable', File::default()->extensions(['css', 'txt'])->max(2048)],
         ]);
 
-        $data["is_limited"] = filter_var($data["is_limited"], FILTER_VALIDATE_BOOLEAN);
-        $data["is_offsale"] = filter_var($data["is_offsale"], FILTER_VALIDATE_BOOLEAN);
+        $data['is_limited'] = filter_var($data['is_limited'], FILTER_VALIDATE_BOOLEAN);
+        $data['is_offsale'] = filter_var($data['is_offsale'], FILTER_VALIDATE_BOOLEAN);
+        $data['is_timed'] = filter_var($data['is_timed'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        if (! $data['is_timed']) {
+            $data['timed_end_at'] = null;
+        }
 
         $changes = [];
         foreach ($data as $key => $value) {
@@ -653,6 +660,8 @@ class GeneralController extends Controller
             'stock_count' => ['sometimes', 'integer', 'min:0'],
             'stock_left' => ['sometimes', 'integer', 'min:0'],
             'offsale' => ['sometimes', 'in:true,false,1,0'],
+            'is_timed' => ['sometimes', 'in:true,false,1,0'],
+            'timed_end_at' => ['nullable', 'date'],
             'moderation_status' => ['required', 'string', 'in:pending,approved,unapproved'],
             'display_image' => ['nullable', 'file', 'image', 'max:2048'],
             'stylesheet' => ['nullable', File::default()->extensions(['css', 'txt'])->max(2048)],
@@ -694,6 +703,7 @@ class GeneralController extends Controller
 
         $offsale = filter_var($data['offsale'], FILTER_VALIDATE_BOOLEAN);
         $limited = filter_var($data['limited'], FILTER_VALIDATE_BOOLEAN);
+        $isTimed = filter_var($data['is_timed'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
         // if ($data['rarity'] == 'epic') {
         //     // dumbass
@@ -715,6 +725,8 @@ class GeneralController extends Controller
             'stock_count' => $data['stock_count'] ?? 0,
             'stock_left' => $data['stock_left'] ?? 0,
             'is_offsale' => $offsale ?? false,
+            'is_timed' => $isTimed,
+            'timed_end_at' => $isTimed ? ($data['timed_end_at'] ?? null) : null,
             'moderation_status' => $data['moderation_status'],
         ]);
 
@@ -968,6 +980,7 @@ class GeneralController extends Controller
             'daily_bonus' => ['sometimes', 'integer', 'min:0'],
             'maintenance_mode' => ['sometimes', 'boolean'],
             'registration_open' => ['sometimes', 'boolean'],
+            'marketplace_banner_image' => ['nullable', 'file', 'image', 'max:5120'],
         ]);
 
         $changes = [];
@@ -975,6 +988,19 @@ class GeneralController extends Controller
             if ($value != $settings->$key) {
                 $changes[] = "$key updated";
             }
+        }
+
+        // Handle marketplace banner image upload
+        if ($request->hasFile('marketplace_banner_image')) {
+            $file = $request->file('marketplace_banner_image');
+            $storageDir = rtrim(config('app.storage_directory'), '/\\').DIRECTORY_SEPARATOR.'banners';
+            if (! is_dir($storageDir)) {
+                mkdir($storageDir, 0755, true);
+            }
+            $filename = 'marketplace_banner.'.$file->getClientOriginalExtension();
+            $file->move($storageDir, $filename);
+            $data['marketplace_banner_image'] = 'banners/'.$filename;
+            $changes[] = 'marketplace_banner_image updated';
         }
 
         $settings->update($data);
