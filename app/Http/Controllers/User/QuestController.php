@@ -30,7 +30,6 @@ class QuestController extends Controller
         $this->generateQuestsIfNeeded($user, 'challenge', $now->copy()->startOfWeek(), $now->copy()->endOfWeek());
 
         $quests = UserQuest::where('user_id', $user->id)
-            ->where('expires_at', '>', $now)
             ->orderBy('type')
             ->orderBy('id')
             ->get();
