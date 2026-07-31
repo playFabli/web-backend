@@ -8,7 +8,10 @@ use App\Http\Requests\User\PostToWallRequest;
 use App\Models\ActivityLog;
 use App\Models\AdminLog;
 use App\Models\AvatarPoseDefinition;
+use App\Models\BlogPost;
 use App\Models\Collection;
+use App\Models\ForumTag;
+use App\Models\ForumTagInventory;
 use App\Models\ForumThread;
 use App\Models\MarketplaceCaseContent;
 use App\Models\MarketplaceItem;
@@ -46,6 +49,13 @@ class GeneralController extends Controller
 
         $data = $user;
         $data['privacy'] = $user->privacy;
+
+        // Include selected forum tag
+        if ($user->selected_forum_tag_id) {
+            $data['selected_forum_tag'] = ForumTag::find($user->selected_forum_tag_id);
+        } else {
+            $data['selected_forum_tag'] = null;
+        }
 
         return response()->json([
             'data' => $data,
@@ -409,7 +419,7 @@ class GeneralController extends Controller
             }
         }
 
-        if (!$wonContent) {
+        if (! $wonContent) {
             $wonContent = $caseContents->last();
         }
 
@@ -1364,6 +1374,30 @@ class GeneralController extends Controller
         ], 200);
     }
 
+    /**
+     * Return the 3 newest published blog posts for the homepage.
+     *
+     * @return JsonResponse
+     */
+    public function newestBlogPosts()
+    {
+        $posts = Cache::remember('homepage:newest_blog_posts', 60, function () {
+            return BlogPost::select(['id', 'title', 'banner_path', 'user_id', 'is_featured', 'created_at'])
+                ->where('is_published', true)
+                ->where('is_deleted', false)
+                ->with('user:id,username,avatar_frame_id')
+                ->orderBy('is_featured', 'desc')
+                ->orderBy('created_at', 'desc')
+                ->limit(3)
+                ->get()
+                ->toArray();
+        });
+
+        return response()->json([
+            'data' => $posts,
+        ], 200);
+    }
+
     public function userCollections($id)
     {
         $user = User::find($id);
@@ -1380,7 +1414,9 @@ class GeneralController extends Controller
             ->unique()
             ->toArray();
 
-        $result = $collections->map(function ($collection) use ($userInventoryIds) {
+        $alreadyCompleted = $user->collections()->pluck('collections.id')->toArray();
+
+        $result = $collections->map(function ($collection) use ($id, $userInventoryIds, $alreadyCompleted) {
             $collectionItemIds = $collection->items()->pluck('marketplace_item_id')->toArray();
             $totalItems = count($collectionItemIds);
             $collectedItems = count(array_intersect($collectionItemIds, $userInventoryIds));
@@ -1388,10 +1424,15 @@ class GeneralController extends Controller
             $percentage = $totalItems > 0 ? round(($collectedItems / $totalItems) * 100) : 0;
 
             $status = 'not_started';
-            if ($collectedItems > 0 && $collectedItems < $totalItems) {
-                $status = 'in_progress';
-            } elseif ($collectedItems >= $totalItems && $totalItems > 0) {
+            if ($collectedItems >= $totalItems && $totalItems > 0) {
                 $status = 'completed';
+            } elseif ($collectedItems > 0) {
+                $status = 'in_progress';
+            }
+
+            $rewards = null;
+            if ($status === 'completed' && ! in_array($collection->id, $alreadyCompleted)) {
+                $rewards = $this->completeCollectionIfNeeded($collection, $userInventoryIds, $id);
             }
 
             return [
@@ -1403,6 +1444,7 @@ class GeneralController extends Controller
                 'collected_items' => $collectedItems,
                 'percentage' => $percentage,
                 'status' => $status,
+                'rewards' => $rewards,
             ];
         });
 
@@ -1414,5 +1456,92 @@ class GeneralController extends Controller
         return response()->json([
             'data' => $result,
         ], 200);
+    }
+
+    /**
+     * Grant collection rewards (forum tag, coins, XP) if the collection is fully collected
+     * and hasn't been completed by this user before.
+     *
+     * @param  Collection  $collection
+     * @param  array  $userInventoryIds
+     * @return array|null
+     */
+    private function completeCollectionIfNeeded($collection, $userInventoryIds, $id)
+    {
+        $collectionItemIds = $collection->items()->pluck('marketplace_item_id')->toArray();
+        $totalItems = count($collectionItemIds);
+
+        if ($totalItems === 0) {
+            return null;
+        }
+
+        $collectedItems = count(array_intersect($collectionItemIds, $userInventoryIds));
+
+        if ($collectedItems < $totalItems) {
+            return null;
+        }
+
+        $user = app('token_user');
+
+        // Check if the current user is viewing their own collections
+        if (! $user || $user->id != $id) {
+            return null;
+        }
+
+        // Mark as completed in the pivot table to prevent double rewards
+        $alreadyCompleted = $user->collections()->where('collections.id', $collection->id)->exists();
+        if ($alreadyCompleted) {
+            return null;
+        }
+
+        $user->collections()->attach($collection->id);
+
+        $rewards = [
+            'coins' => 0,
+            'xp' => 0,
+            'forum_tag' => null,
+        ];
+
+        // Grant coin reward
+        if ($collection->coin_reward > 0) {
+            $rewards['coins'] = $collection->coin_reward;
+            $user->coins = $user->coins + $collection->coin_reward;
+        }
+
+        // Grant XP reward
+        if ($collection->xp_reward > 0) {
+            $rewards['xp'] = $collection->xp_reward;
+            $user->giveExp($collection->xp_reward);
+        }
+
+        // Grant forum tag reward
+        if ($collection->forum_tag_id) {
+            $existingInventory = ForumTagInventory::where('user_id', $user->id)
+                ->where('forum_tag_id', $collection->forum_tag_id)
+                ->exists();
+
+            if (! $existingInventory) {
+                ForumTagInventory::create([
+                    'user_id' => $user->id,
+                    'forum_tag_id' => $collection->forum_tag_id,
+                ]);
+
+                $tag = ForumTag::find($collection->forum_tag_id);
+                $rewards['forum_tag'] = $tag ? $tag->toArray() : null;
+            }
+        }
+
+        $user->save();
+
+        // Log activity for collection completion
+        ActivityLog::log(
+            $user->id,
+            'collection_complete',
+            "completed the collection: {$collection->name}",
+            $collection,
+            ['collection_id' => $collection->id, 'rewards' => $rewards]
+        );
+
+        return $rewards;
     }
 }

@@ -10,6 +10,9 @@ class Collection extends Model
         'name',
         'description',
         'image',
+        'forum_tag_id',
+        'coin_reward',
+        'xp_reward',
     ];
 
     public function items()
@@ -20,5 +23,10 @@ class Collection extends Model
     public function users()
     {
         return $this->belongsToMany(User::class, 'user_collection', 'collection_id', 'user_id');
+    }
+
+    public function forumTag()
+    {
+        return $this->belongsTo(ForumTag::class);
     }
 }

@@ -9,9 +9,10 @@ use App\Http\Requests\Forum\CreateThreadRequest;
 use App\Models\ActivityLog;
 use App\Models\ForumCategory;
 use App\Models\ForumReply;
+use App\Models\ForumTag;
 use App\Models\ForumThread;
 use App\Models\ForumThreadView;
-use Illuminate\Pagination\LengthAwarePaginator;
+use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -67,17 +68,28 @@ class GeneralController extends Controller
     public function thread($id)
     {
         $thread = Cache::remember("forum:thread:{$id}", 60, function () use ($id) {
-            return ForumThread::where('id', $id)
+            $found = ForumThread::where('id', $id)
                 ->where('is_deleted', false)
                 ->with('user')
                 ->with('category')
-                ->first()->toArray();
+                ->first();
+
+            return $found ? $found->toArray() : null;
         });
 
         if (! $thread) {
             return response()->json([
                 'message' => 'Thread not found',
             ], 404);
+        }
+
+        // Add selected forum tag for the thread author
+        $threadUser = User::select('id', 'selected_forum_tag_id')->find($thread['user_id']);
+        if ($threadUser && $threadUser->selected_forum_tag_id) {
+            $tag = ForumTag::find($threadUser->selected_forum_tag_id);
+            $thread['user']['selected_forum_tag'] = $tag ? $tag->toArray() : null;
+        } else {
+            $thread['user']['selected_forum_tag'] = null;
         }
 
         // add view
@@ -110,19 +122,21 @@ class GeneralController extends Controller
                 ->orderBy('created_at', 'asc')
                 ->paginate(9)->toArray();
 
+            // Add selected forum tags for reply authors
+            foreach ($paginated['data'] as &$reply) {
+                $replyUser = User::select('id', 'selected_forum_tag_id')->find($reply['user_id']);
+                if ($replyUser && $replyUser->selected_forum_tag_id) {
+                    $tag = ForumTag::find($replyUser->selected_forum_tag_id);
+                    $reply['user']['selected_forum_tag'] = $tag ? $tag->toArray() : null;
+                } else {
+                    $reply['user']['selected_forum_tag'] = null;
+                }
+            }
+
             return $paginated;
         });
 
-        // $replies = new LengthAwarePaginator(
-        //     $data['data'],
-        //     $data['total'],
-        //     $data['per_page'],
-        //     $data['current_page'],
-        //     ['path' => $path, 'query' => $query]
-        // );
-
         return response()->json($data, 200);
-
     }
 
     public function createThread($categoryId, CreateThreadRequest $request)
@@ -176,7 +190,6 @@ class GeneralController extends Controller
         return response()->json([
             'data' => $thread,
         ], 201);
-
     }
 
     public function createReply($threadId, CreateReplyRequest $request)
@@ -216,7 +229,6 @@ class GeneralController extends Controller
         return response()->json([
             'data' => $reply,
         ], 201);
-
     }
 
     // Admin/Moderator actions for threads

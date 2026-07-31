@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\ForumTagController;
 use App\Http\Controllers\Admin\GeneralController;
 use App\Http\Controllers\Admin\PendingTransactionsController;
 use App\Http\Controllers\User\AuthController;
@@ -96,12 +97,29 @@ Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAdmin::class]]
     Route::post('/collections/{id}/add-item/{itemId}', [GeneralController::class, 'addItemToCollection']);
     Route::post('/collections/{id}/remove-item/{itemId}', [GeneralController::class, 'removeItemFromCollection']);
 
+    // Forum Tags (admin)
+    Route::get('/forum-tags', [ForumTagController::class, 'index']);
+    Route::post('/forum-tags', [ForumTagController::class, 'store']);
+    Route::post('/forum-tags/{id}', [ForumTagController::class, 'update']);
+    Route::delete('/forum-tags/{id}', [ForumTagController::class, 'destroy']);
+    Route::post('/forum-tags/grant', [ForumTagController::class, 'grant']);
+    Route::post('/forum-tags/revoke', [ForumTagController::class, 'revoke']);
+
     // Logs
     Route::get('/logs', [GeneralController::class, 'logs']);
 
     // Site Settings
     Route::get('/site-settings', [GeneralController::class, 'siteSettings']);
     Route::post('/site-settings', [GeneralController::class, 'updateSiteSettings']);
+
+    // Blog (admin write)
+    Route::group(['prefix' => 'blog'], function () {
+        Route::post('/', [App\Http\Controllers\Blog\GeneralController::class, 'create']);
+        Route::post('/{id}', [App\Http\Controllers\Blog\GeneralController::class, 'update']);
+        Route::post('/{id}/publish', [App\Http\Controllers\Blog\GeneralController::class, 'publish']);
+        Route::post('/{id}/feature', [App\Http\Controllers\Blog\GeneralController::class, 'feature']);
+        Route::post('/{id}/delete', [App\Http\Controllers\Blog\GeneralController::class, 'delete']);
+    });
 });
 
 Route::get('/user/newest', [App\Http\Controllers\User\GeneralController::class, 'newestUsers']);
@@ -183,6 +201,7 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         Route::get('/activity-feed', [App\Http\Controllers\User\GeneralController::class, 'activityFeed']);
         Route::get('/newest-items', [App\Http\Controllers\User\GeneralController::class, 'newestItems']);
         Route::get('/newest-posts', [App\Http\Controllers\User\GeneralController::class, 'newestPosts']);
+        Route::get('/newest-blog-posts', [App\Http\Controllers\User\GeneralController::class, 'newestBlogPosts']);
         Route::get('/friends/{id}', [FriendController::class, 'friends']);
         Route::get('/{id}', [App\Http\Controllers\User\GeneralController::class, 'user']);
 
@@ -208,6 +227,11 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
 
         Route::get('/replies/{threadId}', [App\Http\Controllers\Forum\GeneralController::class, 'replies']);
         Route::post('/reply/{threadId}', [App\Http\Controllers\Forum\GeneralController::class, 'createReply'])->middleware('throttle:5,1');
+
+        // Forum tags
+        Route::get('/tags', [App\Http\Controllers\Forum\ForumTagController::class, 'index']);
+        Route::get('/tags/my', [App\Http\Controllers\Forum\ForumTagController::class, 'myTags']);
+        Route::post('/tags/select', [App\Http\Controllers\Forum\ForumTagController::class, 'select']);
 
         // Admin/Moderator thread actions
         Route::post('/thread/{id}/scrub', [App\Http\Controllers\Forum\GeneralController::class, 'scrubThread'])->middleware([RouteGuardOnlyAdmin::class]);
@@ -250,4 +274,10 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
 
     // User collections
     Route::get('/user/collections/{id}', [App\Http\Controllers\User\GeneralController::class, 'userCollections']);
+
+    // Blog (public read)
+    Route::group(['prefix' => 'blog'], function () {
+        Route::get('/', [App\Http\Controllers\Blog\GeneralController::class, 'index']);
+        Route::get('/{id}', [App\Http\Controllers\Blog\GeneralController::class, 'show']);
+    });
 });

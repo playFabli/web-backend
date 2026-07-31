@@ -1146,7 +1146,7 @@ class GeneralController extends Controller
 
     public function collections()
     {
-        $collections = Collection::withCount('items')->orderBy('created_at', 'desc')->get();
+        $collections = Collection::withCount('items')->with('forumTag:id,name,style')->orderBy('created_at', 'desc')->get();
 
         return response()->json([
             'data' => $collections,
@@ -1155,7 +1155,7 @@ class GeneralController extends Controller
 
     public function collection($id)
     {
-        $collection = Collection::with('items:id,title,price,rap,rarity,is_limited,stock_left,created_at')->find($id);
+        $collection = Collection::with('items:id,title,price,rap,rarity,is_limited,stock_left,created_at')->with('forumTag:id,name,style')->find($id);
 
         if (! $collection) {
             return response()->json([
@@ -1176,12 +1176,18 @@ class GeneralController extends Controller
             'name' => ['required', 'string', 'min:1', 'max:255'],
             'description' => ['nullable', 'string'],
             'image' => ['nullable', 'string'],
+            'forum_tag_id' => ['nullable', 'integer', 'exists:forum_tags,id'],
+            'coin_reward' => ['nullable', 'integer', 'min:0'],
+            'xp_reward' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $collection = Collection::create([
             'name' => $data['name'],
             'description' => $data['description'] ?? null,
             'image' => $data['image'] ?? null,
+            'forum_tag_id' => $data['forum_tag_id'] ?? null,
+            'coin_reward' => $data['coin_reward'] ?? 0,
+            'xp_reward' => $data['xp_reward'] ?? 0,
         ]);
 
         if ($admin) {
@@ -1208,6 +1214,9 @@ class GeneralController extends Controller
             'name' => ['sometimes', 'string', 'min:1', 'max:255'],
             'description' => ['nullable', 'string'],
             'image' => ['nullable', 'string'],
+            'forum_tag_id' => ['nullable', 'integer', 'exists:forum_tags,id'],
+            'coin_reward' => ['nullable', 'integer', 'min:0'],
+            'xp_reward' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $collection->update($data);

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
-#[Fillable(['username', 'email', 'password', 'coins', 'is_email_verified', 'profile_theme_id', 'avatar_frame_id'])]
+#[Fillable(['username', 'email', 'password', 'coins', 'is_email_verified', 'profile_theme_id', 'avatar_frame_id', 'selected_forum_tag_id'])]
 #[Hidden(['password', 'email', 'last_currency_at'])]
 class User extends Model
 {
@@ -164,5 +164,15 @@ class User extends Model
     public function collections()
     {
         return $this->belongsToMany(Collection::class, 'user_collection', 'user_id', 'collection_id');
+    }
+
+    public function forumTagInventories()
+    {
+        return $this->hasMany(ForumTagInventory::class);
+    }
+
+    public function forumTags()
+    {
+        return $this->belongsToMany(ForumTag::class, 'forum_tag_inventories', 'user_id', 'forum_tag_id');
     }
 }
