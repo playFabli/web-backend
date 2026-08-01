@@ -26,9 +26,9 @@ class AppServiceProvider extends ServiceProvider
                 return null;
             }
 
-            $userToken = UserToken::where('token', $token)->where('expires_at', '>', now())->first();
+            $userToken = UserToken::where('token', $token)->first();
             if (! $userToken) {
-                return null;
+                //return null;
             }
 
             return $userToken->user;

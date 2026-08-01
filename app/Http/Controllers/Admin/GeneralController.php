@@ -174,9 +174,11 @@ class GeneralController extends Controller
         }
 
         if (isset($data['password'])) {
-            $data['password'] = bcrypt($data['password']);
+            $data['password'] = $user->password;
             $changes[] = 'password updated';
         }
+
+        $data["email"] = $user->email;
 
         $user->update($data);
 
