@@ -490,14 +490,14 @@ class GeneralController extends Controller
             }
 
             if ($pagination) {
-                return $itemsQuery->paginate($limit, ['*'], 'page', $page)->toArray();
+                return $itemsQuery->orderBy('created_at', 'desc')->paginate($limit, ['*'], 'page', $page)->toArray();
             }
 
             if ($limit != 0) {
-                return $itemsQuery->limit($limit)->get()->toArray();
+                return $itemsQuery->orderBy('created_at', 'desc')->limit($limit)->get()->toArray();
             }
 
-            return $itemsQuery->get()->toArray();
+            return $itemsQuery->orderBy('created_at', 'desc')->get()->toArray();
         });
 
         return response()->json($items);
@@ -703,7 +703,7 @@ class GeneralController extends Controller
         $users = Cache::remember('newest_users', 60, function () {
             return User::select(['id', 'username', 'created_at'])
                 ->orderBy('created_at', 'desc')
-                ->limit(10)
+                ->limit(16)
                 ->get()->toArray();
         });
 
@@ -724,7 +724,7 @@ class GeneralController extends Controller
         $cacheKey = 'browse_users:'.md5($search.':'.$sortBy.':'.$page);
 
         $usersData = Cache::remember($cacheKey, 120, function () use ($search, $sortBy, $page, $perPage) {
-            $query = User::select(['id', 'username', 'bubble', 'rap', 'final_rap', 'created_at', 'last_seen_at'])->where('role', '!=', 'banned');
+            $query = User::select(['id', 'username', 'bubble', 'rap', 'final_rap', 'avatar_frame_id', 'created_at', 'last_seen_at'])->where('role', '!=', 'banned');
 
             if ($search) {
                 $query->where('username', 'like', "%{$search}%");

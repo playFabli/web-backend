@@ -326,7 +326,7 @@ class GeneralController extends Controller
                 ->with('user:id,username')
                 ->with('category:id,title')
                 ->orderBy('created_at', 'desc')
-                ->paginate(12);
+                ->paginate(15);
 
             return $paginator->toArray();
         });
@@ -420,7 +420,7 @@ class GeneralController extends Controller
         ]);
 
         DB::table('cache')
-            ->where('key', 'like', config('cache.prefix', '')."marketplace:item:{$request->item_id}:comments:page:%")
+            ->where('key', 'like', config('cache.prefix', '')."marketplace:item:{$id}:comments:page:%")
             ->delete();
 
         return response()->json($comment, 201);
