@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Helpers\PythonRenderHelper;
+use App\Jobs\RenderAllJob;
 use App\Models\AdminLog;
 use App\Models\AvatarPoseDefinition;
 use App\Models\Collection;
@@ -448,35 +449,18 @@ class GeneralController extends Controller
             ], 403);
         }
 
-        set_time_limit(0);
-
-        $userIdList = User::pluck('id');
-        $rendered = 0;
-        $failed = 0;
-
-        foreach ($userIdList as $userId) {
-            try {
-                $response = $this->renderUser($userId);
-                if ($response->getStatusCode() === 200) {
-                    $rendered++;
-                } else {
-                    $failed++;
-                }
-            } catch (\Throwable $e) {
-                $failed++;
-            }
-        }
+        RenderAllJob::dispatch('users', $admin->id);
 
         if ($admin) {
-            $this->log($admin->id, 0, "Rerendered all users: $rendered succeeded, $failed failed");
+            $this->log($admin->id, 0, 'Queued re-render of all users');
         }
 
         return response()->json([
             'data' => [
-                'rendered' => $rendered,
-                'failed' => $failed,
+                'status' => 'queued',
+                'message' => 'Re-render of all users has been queued and is running in the background.',
             ],
-        ], 200);
+        ], 202);
     }
 
     // ---------- Items / Assets ----------
@@ -974,44 +958,18 @@ class GeneralController extends Controller
             ], 403);
         }
 
-        set_time_limit(0);
-
-        $items = MarketplaceItem::with('category')->get();
-        $rendered = 0;
-        $failed = 0;
-        $skipped = 0;
-
-        foreach ($items as $item) {
-            $category = $item->category;
-            if (! $category || ! $category->needs_rendering) {
-                $skipped++;
-
-                continue;
-            }
-
-            try {
-                $response = $this->renderItem($item);
-                if ($response->getStatusCode() === 200) {
-                    $rendered++;
-                } else {
-                    $failed++;
-                }
-            } catch (\Throwable $e) {
-                $failed++;
-            }
-        }
+        RenderAllJob::dispatch('items', $admin->id);
 
         if ($admin) {
-            $this->log($admin->id, 0, "Rerendered all items: $rendered succeeded, $failed failed, $skipped skipped");
+            $this->log($admin->id, 0, 'Queued re-render of all items');
         }
 
         return response()->json([
             'data' => [
-                'rendered' => $rendered,
-                'failed' => $failed,
-                'skipped' => $skipped,
+                'status' => 'queued',
+                'message' => 'Re-render of all items has been queued and is running in the background.',
             ],
-        ], 200);
+        ], 202);
     }
 
     public function rejectItem($id)
