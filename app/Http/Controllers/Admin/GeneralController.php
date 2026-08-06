@@ -178,7 +178,7 @@ class GeneralController extends Controller
             $changes[] = 'password updated';
         }
 
-        $data["email"] = $user->email;
+        $data['email'] = $user->email;
 
         $user->update($data);
 
@@ -505,6 +505,8 @@ class GeneralController extends Controller
             'timed_end_at' => ['nullable', 'date'],
             'moderation_status' => ['sometimes', 'string', 'in:pending,approved,unapproved'],
             'stylesheet' => ['nullable', File::default()->extensions(['css', 'txt'])->max(2048)],
+            'texture' => ['nullable', 'file', 'max:2048'],
+            'model' => ['nullable', 'file', 'max:20480'],
         ]);
 
         $data['is_limited'] = filter_var($data['is_limited'], FILTER_VALIDATE_BOOLEAN);
@@ -539,6 +541,36 @@ class GeneralController extends Controller
             $item->stylesheet_path = 'stylesheets/'.$item->id.'.css';
             $item->save();
             $changes[] = 'stylesheet updated';
+        }
+
+        // Handle texture reupload if the category supports textures
+        if ($request->hasFile('texture') && $category && $category->has_texture) {
+            $file = $request->file('texture');
+            $filename = $item->id.'_'.time();
+            $storageDir = rtrim(config('app.renderer_directory'), '/\\').DIRECTORY_SEPARATOR.'textures';
+            if (! is_dir($storageDir)) {
+                mkdir($storageDir, 0755, true);
+            }
+            if ($file->move($storageDir, $filename.'.png')) {
+                $item->texture_path = 'textures/'.$filename.'.png';
+                $item->save();
+                $changes[] = 'texture updated';
+            }
+        }
+
+        // Handle model reupload if the category supports models
+        if ($request->hasFile('model') && $category && $category->has_model) {
+            $file = $request->file('model');
+            $filename = $item->id.'_'.time();
+            $storageDir = rtrim(config('app.renderer_directory'), '/\\').DIRECTORY_SEPARATOR.'models';
+            if (! is_dir($storageDir)) {
+                mkdir($storageDir, 0755, true);
+            }
+            if ($file->move($storageDir, $filename.'.obj')) {
+                $item->model_path = 'models/'.$filename;
+                $item->save();
+                $changes[] = 'model updated';
+            }
         }
 
         if ($admin) {
@@ -931,6 +963,39 @@ class GeneralController extends Controller
             'Content-Type' => 'image/png',
             'Content-Disposition' => 'inline; filename="template_'.$item->id.'.png"',
         ]);
+    }
+
+    public function rerenderItem($id)
+    {
+        $admin = $this->getAdmin();
+        $item = MarketplaceItem::where('id', $id)->with('category')->first();
+        if (! $item) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Item not found',
+            ], 404);
+        }
+
+        $category = $item->category;
+        if (! $category || ! $category->needs_rendering) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'This item category does not support rendering.',
+            ], 422);
+        }
+
+        if (! $category->has_model && ! $category->has_texture && $category->title !== 'Avatar Poses') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'This item has no model or texture to render.',
+            ], 422);
+        }
+
+        if ($admin) {
+            $this->log($admin->id, $item->user_id, "Rerendered asset #$id (\"".$item->title.'")');
+        }
+
+        return $this->renderItem($item);
     }
 
     // ---------- Logs ----------
