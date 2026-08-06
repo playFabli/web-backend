@@ -438,6 +438,47 @@ class GeneralController extends Controller
         ], 500);
     }
 
+    public function rerenderAllUsers()
+    {
+        $admin = $this->getAdmin();
+        if (! $admin || $admin->role !== 'admin') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'You do not have permission to access this route.',
+            ], 403);
+        }
+
+        set_time_limit(0);
+
+        $userIdList = User::pluck('id');
+        $rendered = 0;
+        $failed = 0;
+
+        foreach ($userIdList as $userId) {
+            try {
+                $response = $this->renderUser($userId);
+                if ($response->getStatusCode() === 200) {
+                    $rendered++;
+                } else {
+                    $failed++;
+                }
+            } catch (\Throwable $e) {
+                $failed++;
+            }
+        }
+
+        if ($admin) {
+            $this->log($admin->id, 0, "Rerendered all users: $rendered succeeded, $failed failed");
+        }
+
+        return response()->json([
+            'data' => [
+                'rendered' => $rendered,
+                'failed' => $failed,
+            ],
+        ], 200);
+    }
+
     // ---------- Items / Assets ----------
 
     public function assets(Request $request)
@@ -474,6 +515,8 @@ class GeneralController extends Controller
             ], 404);
         }
 
+        $item->pose_definition = AvatarPoseDefinition::where('item_id', $item->id)->value('definition');
+
         return response()->json([
             'data' => $item,
         ], 200);
@@ -507,6 +550,7 @@ class GeneralController extends Controller
             'stylesheet' => ['nullable', File::default()->extensions(['css', 'txt'])->max(2048)],
             'texture' => ['nullable', 'file', 'max:2048'],
             'model' => ['nullable', 'file', 'max:20480'],
+            'definition' => ['nullable', 'string'],
         ]);
 
         $data['is_limited'] = filter_var($data['is_limited'], FILTER_VALIDATE_BOOLEAN);
@@ -519,7 +563,7 @@ class GeneralController extends Controller
 
         $changes = [];
         foreach ($data as $key => $value) {
-            if ($key === 'stylesheet') {
+            if (in_array($key, ['stylesheet', 'definition'])) {
                 continue;
             }
             if ($value != $item->$key) {
@@ -570,6 +614,26 @@ class GeneralController extends Controller
                 $item->model_path = 'models/'.$filename;
                 $item->save();
                 $changes[] = 'model updated';
+            }
+        }
+
+        // Handle avatar pose definition updates for the "Avatar Poses" category
+        if ($category && $category->title === 'Avatar Poses') {
+            $definition = $request->input('definition');
+            if ($definition !== null) {
+                $existing = AvatarPoseDefinition::where('item_id', $item->id)->first();
+                if ($existing) {
+                    if ($existing->definition !== $definition) {
+                        $existing->update(['definition' => $definition]);
+                        $changes[] = 'pose definition updated';
+                    }
+                } else {
+                    AvatarPoseDefinition::create([
+                        'item_id' => $item->id,
+                        'definition' => $definition,
+                    ]);
+                    $changes[] = 'pose definition set';
+                }
             }
         }
 
@@ -898,6 +962,56 @@ class GeneralController extends Controller
         }
 
         return response()->json(['error' => 'Failed to render item'], 500);
+    }
+
+    public function rerenderAllItems()
+    {
+        $admin = $this->getAdmin();
+        if (! $admin || $admin->role !== 'admin') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'You do not have permission to access this route.',
+            ], 403);
+        }
+
+        set_time_limit(0);
+
+        $items = MarketplaceItem::with('category')->get();
+        $rendered = 0;
+        $failed = 0;
+        $skipped = 0;
+
+        foreach ($items as $item) {
+            $category = $item->category;
+            if (! $category || ! $category->needs_rendering) {
+                $skipped++;
+
+                continue;
+            }
+
+            try {
+                $response = $this->renderItem($item);
+                if ($response->getStatusCode() === 200) {
+                    $rendered++;
+                } else {
+                    $failed++;
+                }
+            } catch (\Throwable $e) {
+                $failed++;
+            }
+        }
+
+        if ($admin) {
+            $this->log($admin->id, 0, "Rerendered all items: $rendered succeeded, $failed failed, $skipped skipped");
+        }
+
+        return response()->json([
+            'data' => [
+                'rendered' => $rendered,
+                'failed' => $failed,
+                'skipped' => $skipped,
+            ],
+        ], 200);
     }
 
     public function rejectItem($id)

@@ -63,6 +63,8 @@ Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAdmin::class]]
     Route::post('/users/{id}/recalculate-stats', [GeneralController::class, 'recalculateUserStats']);
     Route::post('/users/{id}/render', [GeneralController::class, 'renderUser']);
     Route::post('/users/{id}/scrub', [GeneralController::class, 'scrubUser']);
+    Route::post('/rerender-all-users', [GeneralController::class, 'rerenderAllUsers']);
+    Route::post('/rerender-all-items', [GeneralController::class, 'rerenderAllItems']);
 
     // Assets
     Route::get('/assets', [GeneralController::class, 'assets']);
