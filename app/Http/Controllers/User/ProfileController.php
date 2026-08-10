@@ -8,6 +8,7 @@ use App\Models\MarketplaceItem;
 use App\Models\MarketplaceItemInventory;
 use App\Models\UserProfileItem;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class ProfileController extends Controller
 {
@@ -165,6 +166,10 @@ class ProfileController extends Controller
                 })
                 ->get();
         }
+
+        DB::table('cache')
+            ->where('key', 'like', config('cache.prefix', '').'user:'.$user->id.':%')
+            ->delete();
 
         return response()->json([
             'data' => [

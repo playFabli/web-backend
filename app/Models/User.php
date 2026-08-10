@@ -125,6 +125,15 @@ class User extends Model
                 null,
                 ['old_level' => $oldLevel, 'new_level' => $this->level]
             );
+
+            Notification::send(
+                $this->id,
+                'level_up',
+                'Level Up!',
+                "Congratulations! You leveled up from level {$oldLevel} to level {$this->level}.",
+                null,
+                ['old_level' => $oldLevel, 'new_level' => $this->level]
+            );
         } else {
             $this->exp = $this->exp + $amount;
             $this->save();

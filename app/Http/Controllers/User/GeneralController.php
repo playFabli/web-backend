@@ -16,6 +16,7 @@ use App\Models\ForumThread;
 use App\Models\MarketplaceCaseContent;
 use App\Models\MarketplaceItem;
 use App\Models\MarketplaceItemInventory;
+use App\Models\Notification;
 use App\Models\Petition;
 use App\Models\PetitionVote;
 use App\Models\RoadmapItem;
@@ -598,6 +599,15 @@ class GeneralController extends Controller
         $request->to_id = $to->id;
         $request->save();
 
+        Notification::send(
+            $to->id,
+            'friend_request',
+            'Friend Request',
+            "{$from->username} sent you a friend request.",
+            $from->id,
+            ['from_id' => $from->id]
+        );
+
         QuestController::incrementProgress($from->id, 'Send Friend Requests', 1);
         QuestController::incrementProgress($from->id, 'Social Butterfly', 1);
 
@@ -1108,8 +1118,8 @@ class GeneralController extends Controller
             $category = $item->category;
 
             if ($category->title == 'Gears') {
-                $posXyz = ['x' => 0.913747, 'y' => -2.35409, 'z' => 0.836074];
-                $rotXyz = ['x' => -0.000009, 'y' => -90, 'z' => 0];
+                $posXyz = ['x' => 1.62344, 'y' => -2.00816, 'z' => 0.955435];
+                $rotXyz = ['x' => 90, 'y' => -90, 'z' => 0];
                 $renderer->setPosition('left_arm', $posXyz);
                 $renderer->rotate('left_arm', $rotXyz);
             }

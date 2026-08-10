@@ -19,6 +19,7 @@ use App\Models\MarketplaceItem;
 use App\Models\MarketplaceItemInventory;
 use App\Models\MarketplaceSellRequest;
 use App\Models\MarketplaceSellRequestHistory;
+use App\Models\Notification;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
@@ -553,6 +554,17 @@ class GeneralController extends Controller
             $item,
             ['item_title' => $item->title, 'price' => $item->price]
         );
+
+        if ($creator) {
+            Notification::send(
+                $creator->id,
+                'item_bought',
+                'Item Purchased',
+                "{$user->username} bought your item \"{$item->title}\" for {$item->price} Coins.",
+                $user->id,
+                ['item_id' => $item->id, 'item_title' => $item->title, 'price' => $item->price, 'buyer_id' => $user->id]
+            );
+        }
 
         return response()->json([
             'message' => 'Successfully bought item!',

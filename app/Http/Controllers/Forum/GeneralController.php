@@ -12,6 +12,7 @@ use App\Models\ForumReply;
 use App\Models\ForumTag;
 use App\Models\ForumThread;
 use App\Models\ForumThreadView;
+use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -221,6 +222,18 @@ class GeneralController extends Controller
         // Track quest progress for forum replies
         QuestController::incrementProgress($user->id, 'Forum Engagement', 1);
         QuestController::incrementProgress($user->id, 'Interact with other players on the forums', 1);
+
+        // Notify the thread author when someone replies to their thread
+        if ($user->id != $thread->user_id) {
+            Notification::send(
+                $thread->user_id,
+                'forum_reply',
+                'New Reply',
+                "{$user->username} replied to your thread \"{$thread->title}\".",
+                $user->id,
+                ['thread_id' => $thread->id, 'thread_title' => $thread->title, 'reply_id' => $reply->id]
+            );
+        }
 
         DB::table('cache')
             ->where('key', 'like', config('cache.prefix', '')."forum:thread:{$threadId}:replies:page:%")

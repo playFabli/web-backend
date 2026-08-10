@@ -12,6 +12,7 @@ use App\Models\DailyActiveUser;
 use App\Models\MarketplaceCategory;
 use App\Models\MarketplaceItem;
 use App\Models\MarketplaceItemInventory;
+use App\Models\Notification;
 use App\Models\SiteSetting;
 use App\Models\User;
 use App\Models\UserBan;
@@ -860,6 +861,17 @@ class GeneralController extends Controller
             $this->log($admin->id, 0, 'Created asset #'.$item->id.' ("'.$item->title.'")');
         }
 
+        // Notify all users when an approved admin item is released
+        if ($item->moderation_status === 'approved') {
+            Notification::sendToAll(
+                'admin_item_released',
+                'New Item Released',
+                "A new item \"{$item->title}\" is now available in the Marketplace!",
+                $admin ? $admin->id : null,
+                ['item_id' => $item->id, 'item_title' => $item->title, 'category_id' => $item->category_id]
+            );
+        }
+
         return response()->json([
             'data' => $item,
         ], 201);
@@ -876,8 +888,8 @@ class GeneralController extends Controller
         $whiteColor = '#FFFFFF';
 
         if ($category->title == 'Gears') {
-            $posXyz = ['x' => 0.913747, 'y' => -2.35409, 'z' => 0.836074];
-            $rotXyz = ['x' => '-0.000009', 'y' => '-90', 'z' => '0'];
+            $posXyz = ['x' => 1.62344, 'y' => -2.00816, 'z' => 0.955435];
+            $rotXyz = ['x' => 90, 'y' => -90, 'z' => 0];
             $renderer->setPosition('left_arm', $posXyz);
             $renderer->rotate('left_arm', $rotXyz);
         }

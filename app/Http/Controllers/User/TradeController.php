@@ -5,6 +5,7 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Trades\CreateTradeRequest;
 use App\Models\MarketplaceItemInventory;
+use App\Models\Notification;
 use App\Models\Trade;
 use App\Models\User;
 
@@ -109,6 +110,15 @@ class TradeController extends Controller
         $trade->requesting_coins = $data['receiving_coins'];
         $trade->status = 0;
         $trade->save();
+
+        Notification::send(
+            $to->id,
+            'trade_received',
+            'New Trade Request',
+            "{$user->username} sent you a trade request.",
+            $user->id,
+            ['trade_id' => $trade->id, 'from_id' => $user->id]
+        );
 
         return response()->json([], 201);
     }

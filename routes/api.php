@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\GeneralController;
 use App\Http\Controllers\Admin\PendingTransactionsController;
 use App\Http\Controllers\User\AuthController;
 use App\Http\Controllers\User\FriendController;
+use App\Http\Controllers\User\NotificationController;
 use App\Http\Controllers\User\ProfileController;
 use App\Http\Controllers\User\QuestController;
 use App\Http\Controllers\User\SettingsController;
@@ -199,6 +200,11 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
             Route::post('/create/{toId}', [TradeController::class, 'create']);
             Route::post('/update/{id}/{state}', [TradeController::class, 'changeTradeState']);
         });
+
+        Route::get('/mailbox', [NotificationController::class, 'index']);
+        Route::get('/mailbox/unread-count', [NotificationController::class, 'unreadCount']);
+        Route::post('/mailbox/read/{id}', [NotificationController::class, 'markRead']);
+        Route::post('/mailbox/read-all', [NotificationController::class, 'markAllRead']);
 
         Route::get('/transactions', [App\Http\Controllers\User\GeneralController::class, 'transactions']);
         Route::get('/activity-feed', [App\Http\Controllers\User\GeneralController::class, 'activityFeed']);
