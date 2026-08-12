@@ -976,9 +976,20 @@ class GeneralController extends Controller
     {
         $user = app('token_user');
 
-        $colors = UserAvatarColor::where('user_id', $user->id)->first();
+        // Default to the authenticated user's own colors. An optional
+        // ?user_id= query param lets the frontend read another user's colors
+        // (e.g. the robot opponent, user id 2) for display. We only seed a
+        // default record for the authenticated user so we never create rows
+        // for other users on a plain read.
+        $targetUserId = request()->query('user_id', $user->id);
+
+        $colors = UserAvatarColor::where('user_id', $targetUserId)->first();
 
         if (! $colors) {
+            if ((string) $targetUserId !== (string) $user->id) {
+                return response()->json(['data' => null]);
+            }
+
             $colors = UserAvatarColor::create([
                 'user_id' => $user->id,
                 'left_arm_color' => '#D9C5B2',

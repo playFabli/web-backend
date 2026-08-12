@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\Admin\ArenaItemController;
 use App\Http\Controllers\Admin\ForumTagController;
 use App\Http\Controllers\Admin\GeneralController;
 use App\Http\Controllers\Admin\PendingTransactionsController;
+use App\Http\Controllers\Arena\MatchController;
 use App\Http\Controllers\User\AuthController;
 use App\Http\Controllers\User\FriendController;
 use App\Http\Controllers\User\NotificationController;
@@ -115,6 +117,12 @@ Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAdmin::class]]
     // Site Settings
     Route::get('/site-settings', [GeneralController::class, 'siteSettings']);
     Route::post('/site-settings', [GeneralController::class, 'updateSiteSettings']);
+
+    // Arena-compatible items
+    Route::get('/arena-items', [ArenaItemController::class, 'index']);
+    Route::post('/arena-items', [ArenaItemController::class, 'store']);
+    Route::post('/arena-items/{id}', [ArenaItemController::class, 'update']);
+    Route::delete('/arena-items/{id}', [ArenaItemController::class, 'destroy']);
 
     // Blog (admin write)
     Route::group(['prefix' => 'blog'], function () {
@@ -281,6 +289,16 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         Route::get('/collections/{id}', [App\Http\Controllers\Marketplace\GeneralController::class, 'collection']);
     });
 
+    // Arena (authenticated)
+    Route::group(['prefix' => 'arena'], function () {
+        Route::get('/avatar', [App\Http\Controllers\Arena\GeneralController::class, 'manifest']);
+        Route::get('/stats', [MatchController::class, 'stats']);
+        Route::post('/queue', [MatchController::class, 'queue']);
+        Route::get('/match/active', [MatchController::class, 'active']);
+        Route::post('/match/{id}/action', [MatchController::class, 'action']);
+        Route::post('/match/{id}/quit', [MatchController::class, 'quit']);
+    });
+
     // User collections
     Route::get('/user/collections/{id}', [App\Http\Controllers\User\GeneralController::class, 'userCollections']);
 
@@ -290,3 +308,6 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         Route::get('/{id}', [App\Http\Controllers\Blog\GeneralController::class, 'show']);
     });
 });
+
+Route::get('/arena/model/{session}/{itemId}.obj', [App\Http\Controllers\Arena\GeneralController::class, 'model']);
+Route::get('/arena/texture/{session}/{itemId}', [App\Http\Controllers\Arena\GeneralController::class, 'texture']);

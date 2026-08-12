@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
-#[Fillable(['username', 'email', 'password', 'coins', 'is_email_verified', 'profile_theme_id', 'avatar_frame_id', 'selected_forum_tag_id'])]
+#[Fillable(['username', 'email', 'password', 'coins', 'is_email_verified', 'profile_theme_id', 'avatar_frame_id', 'selected_forum_tag_id', 'arena_tokens', 'arena_exp'])]
 #[Hidden(['password', 'email', 'last_currency_at'])]
 class User extends Model
 {
