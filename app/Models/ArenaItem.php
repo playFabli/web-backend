@@ -16,4 +16,9 @@ class ArenaItem extends Model
     {
         return $this->belongsTo(MarketplaceItem::class, 'item_id');
     }
+
+    public function moves()
+    {
+        return $this->hasMany(ArenaMove::class)->orderBy('position');
+    }
 }

@@ -123,6 +123,7 @@ Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAdmin::class]]
     Route::post('/arena-items', [ArenaItemController::class, 'store']);
     Route::post('/arena-items/{id}', [ArenaItemController::class, 'update']);
     Route::delete('/arena-items/{id}', [ArenaItemController::class, 'destroy']);
+    Route::post('/arena-items/{id}/moves', [ArenaItemController::class, 'storeMoves']);
 
     // Blog (admin write)
     Route::group(['prefix' => 'blog'], function () {
@@ -297,6 +298,9 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         Route::get('/match/active', [MatchController::class, 'active']);
         Route::post('/match/{id}/action', [MatchController::class, 'action']);
         Route::post('/match/{id}/quit', [MatchController::class, 'quit']);
+        Route::get('/challenges', [App\Http\Controllers\Arena\ChallengeController::class, 'index']);
+        Route::post('/challenges/{id}/claim', [App\Http\Controllers\Arena\ChallengeController::class, 'claim']);
+        Route::post('/exchange', [App\Http\Controllers\Arena\GeneralController::class, 'exchange']);
     });
 
     // User collections

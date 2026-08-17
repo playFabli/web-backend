@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Arena;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\MarketplaceItem;
 use App\Models\UserWearing;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 
 class GeneralController extends Controller
@@ -67,6 +69,89 @@ class GeneralController extends Controller
         return response()->json([
             'data' => $data,
             'session' => $session,
+        ]);
+    }
+
+    /**
+     * Exchange arena rewards for spendable/game currency.
+     *
+     * - Arena tokens -> coins (currency) at 10 : 1
+     * - Arena XP      -> account XP at 10 : 1
+     *
+     * Amounts must be supplied in multiples of 10 so a user never gives up a
+     * traded-in remainder for nothing. Each provided value is deducted from the
+     * matching arena balance and its opposite is credited back at the 10:1 rate.
+     */
+    public function exchange(Request $request)
+    {
+        $user = app('token_user');
+
+        if (! $user) {
+            return response()->json(['error' => 'Unauthenticated'], 401);
+        }
+
+        $tokens = (int) $request->input('tokens', 0);
+        $exp = (int) $request->input('exp', 0);
+
+        if ($tokens < 0 || $exp < 0) {
+            return response()->json(['message' => 'Invalid amount.'], 422);
+        }
+
+        if ($tokens > 0 && ($tokens < 10 || $tokens % 10 !== 0)) {
+            return response()->json(['message' => 'Tokens must be exchanged in multiples of 10.'], 422);
+        }
+
+        if ($exp > 0 && ($exp < 10 || $exp % 10 !== 0)) {
+            return response()->json(['message' => 'Arena XP must be exchanged in multiples of 10.'], 422);
+        }
+
+        if ($tokens > (int) $user->arena_tokens) {
+            return response()->json(['message' => 'Not enough arena tokens.'], 422);
+        }
+
+        if ($exp > (int) $user->arena_exp) {
+            return response()->json(['message' => 'Not enough arena XP.'], 422);
+        }
+
+        if ($tokens > 0) {
+            $coinsGranted = intdiv($tokens, 10);
+
+            $user->arena_tokens = (int) $user->arena_tokens - $tokens;
+            $user->coins = (int) $user->coins + $coinsGranted;
+
+            ActivityLog::log(
+                $user->id,
+                'arena_token_exchange',
+                "exchanged {$tokens} arena tokens for {$coinsGranted} currency",
+                null,
+                ['tokens' => $tokens, 'coins' => $coinsGranted, 'rate' => 10]
+            );
+        }
+
+        if ($exp > 0) {
+            $expGranted = intdiv($exp, 10);
+
+            $user->arena_exp = (int) $user->arena_exp - $exp;
+            $user->giveExp($expGranted);
+
+            ActivityLog::log(
+                $user->id,
+                'arena_exp_exchange',
+                "exchanged {$exp} arena XP for {$expGranted} account XP",
+                null,
+                ['arena_exp' => $exp, 'exp' => $expGranted, 'rate' => 10]
+            );
+        }
+
+        $user->save();
+
+        return response()->json([
+            'message' => 'Exchange successful',
+            'arena_tokens' => (int) $user->arena_tokens,
+            'arena_exp' => (int) $user->arena_exp,
+            'coins' => (int) $user->coins,
+            'exp' => (int) $user->exp,
+            'level' => (int) $user->level,
         ]);
     }
 
