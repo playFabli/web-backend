@@ -207,6 +207,7 @@ Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function ()
         Route::post('/unfriend/{id}', [App\Http\Controllers\User\GeneralController::class, 'unfriend']);
         Route::group(['prefix' => 'friend'], function () {
             Route::get('/requests', [App\Http\Controllers\User\GeneralController::class, 'requests']);
+            Route::get('/requests/count', [App\Http\Controllers\User\GeneralController::class, 'friendRequestCount']);
             Route::post('/change/{id}/{state}', [App\Http\Controllers\User\GeneralController::class, 'changeRequestState']);
             Route::post('/{id}', [App\Http\Controllers\User\GeneralController::class, 'sendFriendRequest']);
         });

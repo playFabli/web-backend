@@ -720,7 +720,11 @@ class MatchController extends Controller
      */
     private function timeLeft(ArenaMatch $match): int
     {
-        $elapsed = now()->diffInSeconds($match->created_at);
+        // Carbon's diffInSeconds() returns a signed ($date - $this) value,
+        // so elapsed would come back negative for a past created_at and the
+        // clock would count up instead of down. Use raw timestamps to get a
+        // positive, unambiguous elapsed time.
+        $elapsed = max(0, now()->getTimestamp() - $match->created_at->getTimestamp());
 
         return max(0, self::MATCH_DURATION_SECONDS - (int) $elapsed);
     }

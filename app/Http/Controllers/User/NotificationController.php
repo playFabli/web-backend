@@ -19,9 +19,7 @@ class NotificationController extends Controller
             ->orderByDesc('created_at')
             ->paginate(20);
 
-        $unread = Notification::where('user_id', $user->id)
-            ->whereNull('read_at')
-            ->count();
+        $unread = Notification::unreadCountFor($user->id);
 
         return response()->json([
             'data' => $notifications,
@@ -36,9 +34,7 @@ class NotificationController extends Controller
     {
         $user = app('token_user');
 
-        $unread = Notification::where('user_id', $user->id)
-            ->whereNull('read_at')
-            ->count();
+        $unread = Notification::unreadCountFor($user->id);
 
         return response()->json([
             'data' => [
@@ -67,6 +63,8 @@ class NotificationController extends Controller
         if (! $notification->read_at) {
             $notification->read_at = now();
             $notification->save();
+
+            Notification::forgetUnreadCount($user->id);
         }
 
         return response()->json($notification, 200);
@@ -82,6 +80,8 @@ class NotificationController extends Controller
         Notification::where('user_id', $user->id)
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
+
+        Notification::forgetUnreadCount($user->id);
 
         return response()->json([], 200);
     }

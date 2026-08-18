@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class Notification extends Model
@@ -39,6 +40,27 @@ class Notification extends Model
     }
 
     /**
+     * Cached unread count for a user. The cache is reset whenever a new
+     * notification is created or one is marked as read.
+     */
+    public static function unreadCountFor(int $userId): int
+    {
+        return (int) Cache::remember(
+            "notification_unread_count:{$userId}",
+            now()->addDay(),
+            fn () => self::where('user_id', $userId)->whereNull('read_at')->count()
+        );
+    }
+
+    /**
+     * Drop the cached unread count for a user.
+     */
+    public static function forgetUnreadCount(int $userId): void
+    {
+        Cache::forget("notification_unread_count:{$userId}");
+    }
+
+    /**
      * Create a notification for a single recipient.
      */
     public static function send(
@@ -49,7 +71,7 @@ class Notification extends Model
         ?int $fromUserId = null,
         ?array $data = null
     ): self {
-        return self::create([
+        $notification = self::create([
             'user_id' => $userId,
             'from_user_id' => $fromUserId,
             'type' => $type,
@@ -57,6 +79,10 @@ class Notification extends Model
             'body' => $body,
             'data' => $data,
         ]);
+
+        self::forgetUnreadCount($userId);
+
+        return $notification;
     }
 
     /**
@@ -86,6 +112,8 @@ class Notification extends Model
                 ])->all();
 
                 DB::table('notifications')->insert($rows);
+
+                $users->each(fn ($user) => self::forgetUnreadCount($user->id));
             });
     }
 }

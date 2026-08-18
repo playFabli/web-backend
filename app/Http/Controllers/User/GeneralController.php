@@ -681,6 +681,23 @@ class GeneralController extends Controller
         return response()->json($requests);
     }
 
+    /**
+     * Pending friend request count for a nav badge. The cache is reset
+     * whenever a request is sent to or resolved by the user.
+     */
+    public function friendRequestCount()
+    {
+        $user = app('token_user');
+
+        $count = UserFriendRequest::pendingCountFor($user->id);
+
+        return response()->json([
+            'data' => [
+                'count' => $count,
+            ],
+        ]);
+    }
+
     public function sendFriendRequest($toId)
     {
         $to = User::select(['id'])->where('id', $toId)->first();
@@ -714,6 +731,8 @@ class GeneralController extends Controller
         $request->from_id = $from->id;
         $request->to_id = $to->id;
         $request->save();
+
+        UserFriendRequest::forgetPendingCount($to->id);
 
         Notification::send(
             $to->id,
@@ -758,10 +777,12 @@ class GeneralController extends Controller
             $friend->save();
 
             $request->delete();
+            UserFriendRequest::forgetPendingCount($user->id);
 
             return response()->json([], 200);
         } elseif ($state == 1) {
             $request->delete();
+            UserFriendRequest::forgetPendingCount($user->id);
 
             return response()->json([], 200);
         }
