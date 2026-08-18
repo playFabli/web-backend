@@ -119,7 +119,7 @@ class GeneralController extends Controller
             });
         }
 
-        if (! empty($role) && in_array($role, ['user', 'moderator', 'admin'])) {
+        if (! empty($role) && in_array($role, ['user', 'moderator', 'admin', 'asset_creator'])) {
             $usersQuery->where('role', $role);
         }
 
@@ -158,7 +158,7 @@ class GeneralController extends Controller
             'username' => ['sometimes', 'string', 'min:3', 'max:255', 'unique:users,username,'.$id],
             'email' => ['sometimes', 'email', 'max:255', 'unique:users,email,'.$id],
             'password' => ['sometimes', 'string', 'min:6'],
-            'role' => ['sometimes', 'string', 'in:user,moderator,admin'],
+            'role' => ['sometimes', 'string', 'in:user,moderator,admin,asset_creator'],
             'description' => ['sometimes', 'string', 'max:255'],
             'bubble' => ['sometimes', 'string', 'max:255'],
             'coins' => ['sometimes', 'integer', 'min:0'],

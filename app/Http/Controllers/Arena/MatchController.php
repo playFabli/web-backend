@@ -8,6 +8,7 @@ use App\Models\ArenaMatch;
 use App\Models\User;
 use App\Models\UserWearing;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class MatchController extends Controller
@@ -15,7 +16,7 @@ class MatchController extends Controller
     // Stamina tuning (drains fast so fights stay punchy).
     private const MAX_STAMINA = 100;
     private const STAMINA_REGEN = 16;
-    private const REST_REGEN_BONUS = 20; // extra regen while guarding while exhausted
+    private const REST_REGEN_BONUS = 10; // extra regen while guarding while exhausted
     private const ATTACK_COST = 25;
     private const FINISHER_COST = 45;
     private const GUARD_COST = 10;
@@ -98,9 +99,10 @@ class MatchController extends Controller
         $player = $this->statsForUser($user);
         $playerPower = $player['attack'] + $player['defense'];
 
-        // "not too strong or too weak" bracket around the player's power.
-        $minPower = max(2, (int) round($playerPower * 0.95));
-        $maxPower = max($minPower + 1, (int) round($playerPower * 1.5));
+        // "not too strong or too weak" bracket around the player's power:
+        // a robot (or opponent) may be up to ~30% weaker or stronger.
+        $minPower = max(2, (int) round($playerPower * 0.8));
+        $maxPower = max($minPower + 1, (int) round($playerPower * 1.8));
 
         $opponent = $this->findRealOpponent($user, $minPower, $maxPower, $playerPower);
 
@@ -109,13 +111,14 @@ class MatchController extends Controller
         }
 
         // Each fighter fights with the moves of their worn weapon (the
-        // arena-compatible item with the highest combined stats). Robots draw
-        // a random weapon's moveset from the catalogue.
+        // arena-compatible item with the highest combined stats). A robot is
+        // equipped with a single weapon the same way, so it fights with that
+        // weapon's moves too.
         $playerMoves = $this->movesForUser($user);
         $opponentUser = $opponent['is_robot'] ? null : User::find($opponent['user_id']);
         $opponentMoves = $opponentUser
             ? $this->movesForUser($opponentUser)
-            : $this->movesForRobot((int) $opponent['attack']);
+            : $opponent['moves'];
 
         $match = ArenaMatch::create([
             'user_id' => $user->id,
@@ -513,8 +516,8 @@ class MatchController extends Controller
         $match->player_stamina = min(self::MAX_STAMINA, (int) $match->player_stamina + self::STAMINA_REGEN + ($playerResting ? self::REST_REGEN_BONUS : 0));
         $match->opponent_stamina = min(self::MAX_STAMINA, (int) $match->opponent_stamina + self::STAMINA_REGEN + ($opponentResting ? self::REST_REGEN_BONUS : 0));
 
-        $match->player_exhausted = (int) $match->player_stamina <= 0;
-        $match->opponent_exhausted = (int) $match->opponent_stamina <= 0;
+        $match->player_exhausted = (int) $match->player_stamina <= 24;
+        $match->opponent_exhausted = (int) $match->opponent_stamina <= 24;
 
         // --- Combo tracking ---
         if ($playerAction === 'attack') {
@@ -886,12 +889,17 @@ class MatchController extends Controller
 
         // Rewards scale from the opponent's remaining "health to beat"; a
         // draw still pays a consolation.
+        $maxHp = (int) $match->opponent_max_hp;
+        $currentHp = (int) $match->opponent_hp;
+
+        $damageRatio = 1 - ($currentHp / $maxHp);
+
         if ($result === 'won') {
-            $reward = (int) $match->opponent_max_hp;
+            $reward = 50;
         } elseif ($result === 'draw') {
-            $reward = (int) round((int) $match->opponent_max_hp * 0.5);
+            $reward = 30;
         } else {
-            $reward = (int) max(0, $match->opponent_max_hp - $match->opponent_hp);
+            $reward = 10 + (int) round($damageRatio * 30);
         }
 
         $match->tokens_reward = $reward;
@@ -939,26 +947,22 @@ class MatchController extends Controller
             ->orderByDesc(DB::raw('attack + defense'))
             ->first();
 
-        if ($weapon && $weapon->moves->isNotEmpty()) {
-            return $this->padMoves($weapon->moves, (int) $weapon->attack);
+        if ($weapon) {
+            return $this->movesForWeapon($weapon, $this->statsForUser($user)['attack']);
         }
 
         return $this->defaultMoves($this->statsForUser($user)['attack']);
     }
 
     /**
-     * Robot opponents borrow a random weapon's moveset from the catalogue so
-     * every bot fight feels a little different.
+     * The moves a fighter gets from a specific weapon: its configured moveset
+     * padded up to two slots, or generic strikes scaled from the fighter's
+     * attack when the weapon has no moves configured.
      */
-    private function movesForRobot(int $attack): array
+    private function movesForWeapon(ArenaItem $weapon, int $attack): array
     {
-        $weapon = ArenaItem::with(['moves' => fn ($q) => $q->orderBy('position')])
-            ->whereHas('moves')
-            ->inRandomOrder()
-            ->first();
-
-        if ($weapon && $weapon->moves->isNotEmpty()) {
-            return $this->padMoves($weapon->moves, $attack);
+        if ($weapon->moves->isNotEmpty()) {
+            return $this->padMoves($weapon->moves, (int) $weapon->attack);
         }
 
         return $this->defaultMoves($attack);
@@ -1073,7 +1077,7 @@ class MatchController extends Controller
      */
     private function damage(int $attack, int $defense): int
     {
-        $variance = mt_rand(75, 135) / 100;
+        $variance = mt_rand(90, 110) / 100;
         $damage = round($attack * 1.5 * $variance) - round($defense * 0.2);
 
         return max(3, (int) $damage);
@@ -1091,6 +1095,20 @@ class MatchController extends Controller
         $wornItemIds = UserWearing::where('user_id', $user->id)->pluck('item_id');
         $arenaItems = ArenaItem::whereIn('item_id', $wornItemIds)->get();
 
+        return $this->statsForItems($arenaItems);
+    }
+
+    /**
+     * Aggregate arena stats from a set of items using the formula every
+     * fighter shares: a small base plus the items' attack/defense, with max
+     * HP derived from defense. Robots reuse this so their numbers match a
+     * player wearing the same gear.
+     *
+     * @param  \Illuminate\Support\Collection<int, ArenaItem>  $arenaItems
+     * @return array{attack:int, defense:int, max_hp:int}
+     */
+    private function statsForItems(Collection $arenaItems): array
+    {
         $attack = self::BASE_ATTACK;
         $defense = self::BASE_DEFENSE;
 
@@ -1156,26 +1174,100 @@ class MatchController extends Controller
     }
 
     /**
-     * Build a robot opponent with random stats inside the power bracket.
+     * Build a robot opponent by equipping it with a set of arena items and
+     * deriving its stats/moves through the same formulas a player uses.
      *
-     * @return array{is_robot:bool, user_id:?int, name:string, attack:int, defense:int, max_hp:int}
+     * @return array{is_robot:bool, user_id:?int, name:string, attack:int, defense:int, max_hp:int, moves:array}
      */
     private function makeRobot(int $minPower, int $maxPower): array
     {
-        $target = random_int($minPower, $maxPower);
-        $attack = random_int(5, max(5, $target - 2));
-        $defense = max(0, $target - $attack);
-
         $names = ['Robo Knight', 'Iron Golem', 'Arena Bot', 'Bronze Sentinel', 'Steel Puppet', 'Turret Prime'];
+
+        // Equip the robot with a set of items (one weapon, plus as much armor
+        // as it can carry), then derive its stats from the whole set and its
+        // moves from the weapon — just like a player.
+        $worn = $this->wornItemsForPowerRange($minPower, $maxPower);
+
+        $stats = $this->statsForItems($worn);
+
+        $weapon = $worn->first(fn (ArenaItem $item) => $item->moves->isNotEmpty());
 
         return [
             'is_robot' => true,
             'user_id' => null,
             'name' => $names[array_rand($names)],
-            'attack' => $attack,
-            'defense' => $defense,
-            'max_hp' => 115 + ($defense * 3),
+            'attack' => $stats['attack'],
+            'defense' => $stats['defense'],
+            'max_hp' => $stats['max_hp'],
+            'moves' => $weapon
+                ? $this->movesForWeapon($weapon, $stats['attack'])
+                : $this->defaultMoves($stats['attack']),
         ];
+    }
+
+    /**
+     * Assemble a robot's worn items so their combined power (the shared base
+     * stats plus the items' attack/defense) lands inside the matchmaking
+     * bracket, keeping the robot comparable to the player. Every robot equips
+     * exactly one weapon (an item with a configured moveset) and then fills
+     * out the rest of its power budget with unlimited armor; no item is worn
+     * more than once.
+     *
+     * @return \Illuminate\Support\Collection<int, ArenaItem>
+     */
+    private function wornItemsForPowerRange(int $minPower, int $maxPower): Collection
+    {
+        $items = ArenaItem::with(['moves' => fn ($q) => $q->orderBy('position')])->get();
+
+        if ($items->isEmpty()) {
+            return collect();
+        }
+
+        $weapons = $items->filter(fn (ArenaItem $item) => $item->moves->isNotEmpty())->values();
+        $armor = $items->filter(fn (ArenaItem $item) => $item->moves->isEmpty())->values();
+
+        $basePower = self::BASE_ATTACK + self::BASE_DEFENSE;
+        $budget = random_int($minPower, $maxPower) - $basePower;
+
+        $worn = collect();
+        $spent = 0;
+
+        // Every robot carries exactly one weapon.
+        if ($weapons->isNotEmpty()) {
+            $weapon = $this->pickWeapon($weapons, $budget);
+            $worn->push($weapon);
+            $spent = (int) $weapon->attack + (int) $weapon->defense;
+        }
+
+        // Armor stacks freely to fill out the rest of the power budget.
+        foreach ($armor->shuffle() as $item) {
+            $cost = (int) $item->attack + (int) $item->defense;
+
+            if ($cost <= 0 || $spent + $cost > $budget) {
+                continue;
+            }
+
+            $worn->push($item);
+            $spent += $cost;
+        }
+
+        return $worn;
+    }
+
+    /**
+     * Choose a weapon that fits within the power budget when possible (so
+     * there is still room for armor), otherwise the cheapest one so the
+     * overshoot is as small as possible.
+     */
+    private function pickWeapon(Collection $weapons, int $budget): ArenaItem
+    {
+        $fitting = $weapons->filter(fn (ArenaItem $item) => (int) $item->attack + (int) $item->defense <= $budget);
+
+        if ($fitting->isNotEmpty()) {
+            return $fitting->random();
+        }
+
+        return $weapons->sortBy(fn (ArenaItem $item) => (int) $item->attack + (int) $item->defense)->first();
     }
 
     /**

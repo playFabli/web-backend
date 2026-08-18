@@ -13,6 +13,7 @@ use App\Http\Controllers\User\QuestController;
 use App\Http\Controllers\User\SettingsController;
 use App\Http\Controllers\User\TradeController;
 use App\Http\Middleware\RouteGuardOnlyAdmin;
+use App\Http\Middleware\RouteGuardOnlyAssetCreator;
 use App\Http\Middleware\RouteGuardOnlyAuthenticated;
 use App\Http\Middleware\RouteGuardOnlyGuest;
 use App\Models\EmailVerificationCode;
@@ -69,20 +70,11 @@ Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAdmin::class]]
     Route::post('/rerender-all-users', [GeneralController::class, 'rerenderAllUsers']);
     Route::post('/rerender-all-items', [GeneralController::class, 'rerenderAllItems']);
 
-    // Assets
-    Route::get('/assets', [GeneralController::class, 'assets']);
-    Route::get('/assets/{id}', [GeneralController::class, 'asset']);
-    Route::post('/assets', [GeneralController::class, 'createAsset']);
-    Route::post('/assets/{id}', [GeneralController::class, 'updateAsset']);
-    Route::delete('/assets/{id}', [GeneralController::class, 'deleteAsset']);
+    // Assets (grant only for admins/moderators)
     Route::post('/assets/{id}/grant', [GeneralController::class, 'grantAsset']);
-    Route::get('/assets/{id}/request-template', [GeneralController::class, 'requestTemplate']);
-    Route::post('/assets/{id}/rerender', [GeneralController::class, 'rerenderItem']);
 
-    // Moderation
+    // Moderation queue
     Route::get('/pending-items', [GeneralController::class, 'pendingItems']);
-    Route::post('/items/{id}/approve', [GeneralController::class, 'approveItem']);
-    Route::post('/items/{id}/reject', [GeneralController::class, 'rejectItem']);
 
     // Transactions
     Route::get('/user/{id}/pending-transactions', [App\Http\Controllers\User\GeneralController::class, 'pendingTransactions']);
@@ -95,13 +87,10 @@ Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAdmin::class]]
     Route::post('/categories/{id}', [GeneralController::class, 'updateCategory']);
     Route::delete('/categories/{id}', [GeneralController::class, 'deleteCategory']);
 
-    // Collections
-    Route::get('/collections', [GeneralController::class, 'collections']);
+    // Collections (management stays admin/moderator-only; listing and item assignment are needed by asset creators)
     Route::post('/collections', [GeneralController::class, 'createCollection']);
     Route::post('/collections/{id}', [GeneralController::class, 'updateCollection']);
     Route::delete('/collections/{id}', [GeneralController::class, 'deleteCollection']);
-    Route::post('/collections/{id}/add-item/{itemId}', [GeneralController::class, 'addItemToCollection']);
-    Route::post('/collections/{id}/remove-item/{itemId}', [GeneralController::class, 'removeItemFromCollection']);
 
     // Forum Tags (admin)
     Route::get('/forum-tags', [ForumTagController::class, 'index']);
@@ -133,6 +122,26 @@ Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAdmin::class]]
         Route::post('/{id}/feature', [App\Http\Controllers\Blog\GeneralController::class, 'feature']);
         Route::post('/{id}/delete', [App\Http\Controllers\Blog\GeneralController::class, 'delete']);
     });
+});
+
+// Assets (admin + moderator + asset_creator): creating and modifying items in the admin panel
+Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAssetCreator::class]], function () {
+    Route::get('/assets', [GeneralController::class, 'assets']);
+    Route::get('/assets/{id}', [GeneralController::class, 'asset']);
+    Route::post('/assets', [GeneralController::class, 'createAsset']);
+    Route::post('/assets/{id}', [GeneralController::class, 'updateAsset']);
+    Route::delete('/assets/{id}', [GeneralController::class, 'deleteAsset']);
+    Route::get('/assets/{id}/request-template', [GeneralController::class, 'requestTemplate']);
+    Route::post('/assets/{id}/rerender', [GeneralController::class, 'rerenderItem']);
+
+    // Item moderation status changes (shown in the Assets UI)
+    Route::post('/items/{id}/approve', [GeneralController::class, 'approveItem']);
+    Route::post('/items/{id}/reject', [GeneralController::class, 'rejectItem']);
+
+    // Collections: listing and item assignment (needed by the asset create/edit pages)
+    Route::get('/collections', [GeneralController::class, 'collections']);
+    Route::post('/collections/{id}/add-item/{itemId}', [GeneralController::class, 'addItemToCollection']);
+    Route::post('/collections/{id}/remove-item/{itemId}', [GeneralController::class, 'removeItemFromCollection']);
 });
 
 Route::get('/user/newest', [App\Http\Controllers\User\GeneralController::class, 'newestUsers']);

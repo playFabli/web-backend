@@ -7,6 +7,8 @@ use App\Http\Helpers\PythonRenderHelper;
 use App\Http\Requests\User\PostToWallRequest;
 use App\Models\ActivityLog;
 use App\Models\AdminLog;
+use App\Models\ArenaItem;
+use App\Models\ArenaMatch;
 use App\Models\AvatarPoseDefinition;
 use App\Models\BlogPost;
 use App\Models\Collection;
@@ -163,7 +165,7 @@ class GeneralController extends Controller
         $user = Cache::remember($cacheKey, 60, function () use ($id) {
             return User::select([
                 'id', 'username', 'description', 'bubble', 'level', 'exp', 'coins', 'profile_theme_id', 'avatar_frame_id', 'role',
-                'final_rap', 'is_email_verified', 'last_seen_at', 'created_at',
+                'final_rap', 'is_email_verified', 'last_seen_at', 'created_at', 'arena_exp',
             ])
                 ->where('id', $id)
                 ->with('privacy')
@@ -216,9 +218,89 @@ class GeneralController extends Controller
             }
         }
 
+        $arenaStats = $this->arenaStatsFor((int) $user['id'], (int) ($user['arena_exp'] ?? 0));
+
+        $user['arena_rank'] = $arenaStats['rank'];
+        $user['arena_victories'] = $arenaStats['victories'];
+        $user['arena_losses'] = $arenaStats['losses'];
+        $user['arena_attack'] = $arenaStats['attack'];
+        $user['arena_defense'] = $arenaStats['defense'];
+
         return response()->json([
             'data' => $user,
         ], 200);
+    }
+
+    /**
+     * Aggregate a user's arena profile stats: rank title (derived from arena
+     * XP using the same thresholds as the arena lobby), win/loss record from
+     * finished matches, and attack/defense from worn arena-compatible items.
+     *
+     * @return array{rank:string, victories:int, losses:int, attack:int, defense:int}
+     */
+    private function arenaStatsFor(int $userId, int $arenaExp): array
+    {
+        $victories = ArenaMatch::where('user_id', $userId)->where('status', 'won')->count();
+        $losses = ArenaMatch::where('user_id', $userId)->where('status', 'lost')->count();
+
+        $attack = 10;
+        $defense = 5;
+        $wornItemIds = UserWearing::where('user_id', $userId)->pluck('item_id');
+        foreach (ArenaItem::whereIn('item_id', $wornItemIds)->get() as $arenaItem) {
+            $attack += (int) $arenaItem->attack;
+            $defense += (int) $arenaItem->defense;
+        }
+
+        return [
+            'rank' => $this->arenaRank($arenaExp),
+            'victories' => $victories,
+            'losses' => $losses,
+            'attack' => $attack,
+            'defense' => $defense,
+        ];
+    }
+
+    /**
+     * Arena rank title derived from arena XP, mirroring the thresholds the
+     * arena lobby shows.
+     */
+    private function arenaRank(int $exp): string
+    {
+        if ($exp < 150) {
+            return 'Knight I';
+        }
+        if ($exp < 300) {
+            return 'Knight II';
+        }
+        if ($exp < 450) {
+            return 'Knight III';
+        }
+        if ($exp < 650) {
+            return 'Noble I';
+        }
+        if ($exp < 850) {
+            return 'Noble II';
+        }
+        if ($exp < 1100) {
+            return 'Noble III';
+        }
+        if ($exp < 1350) {
+            return 'King I';
+        }
+        if ($exp < 1600) {
+            return 'King II';
+        }
+        if ($exp < 1850) {
+            return 'King III';
+        }
+        if ($exp < 2200) {
+            return 'Emperor I';
+        }
+        if ($exp < 2600) {
+            return 'Emperor II';
+        }
+
+        return 'Emperor III';
     }
 
     // Profile
