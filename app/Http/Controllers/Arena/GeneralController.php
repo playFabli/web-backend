@@ -54,11 +54,13 @@ class GeneralController extends Controller
                 'category' => $category->title,
                 'slots' => $this->slotsFor($category),
                 'model_url' => null,
+                'model_format' => 'obj',
                 'texture' => null,
             ];
 
             if ($item->model_path) {
                 $entry['model_url'] = $this->makeTemporaryModel($session, $item);
+                $entry['model_format'] = $this->modelExtension($item);
             }
 
             $entry['texture'] = $this->makeTemporaryTexture($session, $item);
@@ -164,14 +166,21 @@ class GeneralController extends Controller
             return response()->json(['error' => 'Invalid request'], 400);
         }
 
-        $file = storage_path('app/private/arena/temp/'.$session.'/'.$itemId.'/model.obj');
+        $base = storage_path('app/private/arena/temp/'.$session.'/'.$itemId);
+        $extension = 'obj';
+        $file = $base.'/model.obj';
+
+        if (! is_file($file)) {
+            $file = $base.'/model.fbx';
+            $extension = 'fbx';
+        }
 
         if (! is_file($file)) {
             return response()->json(['error' => 'Temporary model not found'], 404);
         }
 
         return response(File::get($file))
-            ->header('Content-Type', 'model/obj')
+            ->header('Content-Type', $extension === 'fbx' ? 'application/octet-stream' : 'model/obj')
             ->header('Access-Control-Allow-Origin', '*')
             ->header('Cache-Control', 'no-store');
     }
@@ -200,13 +209,31 @@ class GeneralController extends Controller
     }
 
     /**
-     * Copy an item's model OBJ into a temporary, self-contained file. Any mtllib
-     * reference is stripped so the browser never chases a missing MTL - the
-     * texture is applied manually by the frontend.
+     * The model file extension for an item. Legacy items stored model_path
+     * without an extension; those files are always .obj.
+     */
+    private function modelExtension(MarketplaceItem $item): string
+    {
+        $extension = strtolower(pathinfo((string) $item->model_path, PATHINFO_EXTENSION));
+
+        return in_array($extension, ['obj', 'fbx']) ? $extension : 'obj';
+    }
+
+    /**
+     * Copy an item's model file into a temporary, self-contained file. OBJ
+     * files get any mtllib reference stripped so the browser never chases a
+     * missing MTL - the texture is applied manually by the frontend. FBX files
+     * are self-contained and are copied as-is.
      */
     private function makeTemporaryModel(string $session, MarketplaceItem $item): ?string
     {
-        $source = config('app.renderer_directory').'/'.$item->model_path.'.obj';
+        $extension = $this->modelExtension($item);
+        $modelPath = $item->model_path;
+        if (! in_array(strtolower(pathinfo($modelPath, PATHINFO_EXTENSION)), ['obj', 'fbx'])) {
+            $modelPath .= '.obj';
+        }
+
+        $source = config('app.renderer_directory').'/'.$modelPath;
 
         if (! is_file($source)) {
             return null;
@@ -215,11 +242,15 @@ class GeneralController extends Controller
         $targetDir = storage_path('app/private/arena/temp/'.$session.'/'.$item->id);
         File::ensureDirectoryExists($targetDir);
 
-        $lines = array_filter(explode("\n", File::get($source)), function (string $line) {
-            return ! preg_match('/^\s*mtllib\b/i', $line);
-        });
+        if ($extension === 'fbx') {
+            File::copy($source, $targetDir.'/model.fbx');
+        } else {
+            $lines = array_filter(explode("\n", File::get($source)), function (string $line) {
+                return ! preg_match('/^\s*mtllib\b/i', $line);
+            });
 
-        File::put($targetDir.'/model.obj', implode("\n", $lines));
+            File::put($targetDir.'/model.obj', implode("\n", $lines));
+        }
 
         return 'arena/model/'.$session.'/'.$item->id;
     }

@@ -590,13 +590,20 @@ class GeneralController extends Controller
         // Handle model reupload if the category supports models
         if ($request->hasFile('model') && $category && $category->has_model) {
             $file = $request->file('model');
+            $extension = strtolower($file->getClientOriginalExtension());
+            if (! in_array($extension, ['obj', 'fbx'])) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Model must be an .obj or .fbx file.',
+                ], 422);
+            }
             $filename = $item->id.'_'.time();
             $storageDir = rtrim(config('app.renderer_directory'), '/\\').DIRECTORY_SEPARATOR.'models';
             if (! is_dir($storageDir)) {
                 mkdir($storageDir, 0755, true);
             }
-            if ($file->move($storageDir, $filename.'.obj')) {
-                $item->model_path = 'models/'.$filename;
+            if ($file->move($storageDir, $filename.'.'.$extension)) {
+                $item->model_path = 'models/'.$filename.'.'.$extension;
                 $item->save();
                 $changes[] = 'model updated';
             }
@@ -776,11 +783,18 @@ class GeneralController extends Controller
         $modelPath = null;
         if ($request->hasFile('model')) {
             $file = $request->file('model');
+            $extension = strtolower($file->getClientOriginalExtension());
+            if (! in_array($extension, ['obj', 'fbx'])) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Model must be an .obj or .fbx file.',
+                ], 422);
+            }
             $filename = time();
             $storageDir = rtrim(config('app.renderer_directory'), '/\\').DIRECTORY_SEPARATOR.'models';
-            $moved = $file->move($storageDir, $filename.'.obj');
+            $moved = $file->move($storageDir, $filename.'.'.$extension);
             if ($moved) {
-                $modelPath = 'models/'.$filename;
+                $modelPath = 'models/'.$filename.'.'.$extension;
             }
         }
 

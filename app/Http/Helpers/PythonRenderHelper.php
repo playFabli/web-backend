@@ -67,10 +67,13 @@ PYTHON;
     }
 
     /**
-     * Import an OBJ file into the scene.
+     * Import a 3D model file (OBJ or FBX) into the scene.
      *
      * @param  string  $name  Object name
-     * @param  string  $file  Path to the OBJ file (without .obj extension)
+     * @param  string  $file  Path to the model file. May or may not include an
+     *                        extension: legacy items stored model_path without
+     *                        one (those files are always .obj), while newer
+     *                        uploads keep the real extension (.obj or .fbx).
      * @param  bool  $createMaterial  Whether to create a material for the object
      */
     public function loadObj(string $name, string $file, bool $createMaterial = true): void
@@ -78,15 +81,33 @@ PYTHON;
         $this->validateNonEmpty($name, 'Object name');
         $this->validateNonEmpty($file, 'File path');
 
-        $escapedName = $this->escapeString($name);
-        $escapedFile = $this->escapeString($file.'.obj');
+        $extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+        if (! in_array($extension, ['obj', 'fbx'])) {
+            // Legacy model_path values carry no extension; the file is .obj.
+            $file .= '.obj';
+            $extension = 'obj';
+        }
 
-        $this->script .= <<<PYTHON
+        $escapedName = $this->escapeString($name);
+        $escapedFile = $this->escapeString($file);
+
+        if ($extension === 'fbx') {
+            // FBX imports can include an empty root/armature, so grab the first
+            // imported mesh instead of blindly taking selected_objects[0].
+            $this->script .= <<<PYTHON
+bpy.ops.import_scene.fbx(filepath='{$escapedFile}')
+obj_{$escapedName} = next((o for o in bpy.context.selected_objects if o.type == 'MESH'), bpy.context.selected_objects[0])
+obj_{$escapedName}.data.name = '{$escapedName}'
+obj_{$escapedName}.name = '{$escapedName}'\n
+PYTHON;
+        } else {
+            $this->script .= <<<PYTHON
 bpy.ops.import_scene.obj(filepath='{$escapedFile}')
 obj_{$escapedName} = bpy.context.selected_objects[0]
 obj_{$escapedName}.data.name = '{$escapedName}'
 obj_{$escapedName}.name = '{$escapedName}'\n
 PYTHON;
+        }
 
         if ($createMaterial) {
             $this->script .= <<<PYTHON
