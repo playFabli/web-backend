@@ -1132,6 +1132,7 @@ class GeneralController extends Controller
             'maintenance_mode' => ['sometimes', 'boolean'],
             'registration_open' => ['sometimes', 'boolean'],
             'marketplace_banner_image' => ['nullable', 'file', 'image', 'max:5120'],
+            'banner_message' => ['sometimes', 'nullable', 'string', 'max:500'],
         ]);
 
         $changes = [];
@@ -1155,6 +1156,11 @@ class GeneralController extends Controller
         }
 
         $settings->update($data);
+
+        // The public site settings endpoint (announcement bar, marketplace
+        // banner, ...) is cached; drop the cache so edits take effect
+        // immediately instead of on the next TTL expiry.
+        Cache::forget('site_settings');
 
         if ($admin) {
             $this->log($admin->id, 0, 'Updated site settings: '.(! empty($changes) ? implode(', ', $changes) : 'no changes'));

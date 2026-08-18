@@ -12,5 +12,6 @@ class SiteSetting extends Model
         'maintenance_mode',
         'registration_open',
         'marketplace_banner_image',
+        'banner_message',
     ];
 }

@@ -895,7 +895,15 @@ class MatchController extends Controller
         $damageRatio = 1 - ($currentHp / $maxHp);
 
         if ($result === 'won') {
-            $reward = 50;
+            // A win pays 50 base plus a small bonus for beating a tankier
+            // opponent: every 10 HP of max health above a naked fighter's
+            // baseline adds +1, capped so a beefy opponent never doubles
+            // the payout. Opponents scale with the player's own gear, so
+            // the bonus gently offsets the wider high-rank thresholds and
+            // keeps each rank a consistent handful of wins.
+            $baseHp = 85 + (self::BASE_DEFENSE * 6);
+            $hpBonus = min(25, (int) floor(max(0, $maxHp - $baseHp) / 10));
+            $reward = 50 + $hpBonus;
         } elseif ($result === 'draw') {
             $reward = 30;
         } else {

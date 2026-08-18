@@ -22,6 +22,7 @@ use App\Models\Notification;
 use App\Models\Petition;
 use App\Models\PetitionVote;
 use App\Models\RoadmapItem;
+use App\Models\SiteSetting;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Models\UserAvatarColor;
@@ -62,6 +63,39 @@ class GeneralController extends Controller
 
         return response()->json([
             'data' => $data,
+        ], 200);
+    }
+
+    /**
+     * Global site settings for the frontend shell (the announcement bar
+     * message, marketplace banner, etc.). Public: nothing here is sensitive
+     * and the announcement bar must be readable by every logged-in user.
+     *
+     * Cached (as an array — models aren't safe to unserialize with
+     * cache.serializable_classes disabled) so the endpoint, which the auth
+     * layout hits on every page load, doesn't touch the database each time.
+     * The cache is cleared whenever an admin saves new settings, so edits
+     * show up immediately; the TTL is only a safety net.
+     */
+    public function siteSettings()
+    {
+        $settings = Cache::remember('site_settings', 3600, function () {
+            $settings = SiteSetting::find(1);
+
+            if (! $settings) {
+                $settings = SiteSetting::create([
+                    'starting_currency' => 100,
+                    'daily_bonus' => 10,
+                    'maintenance_mode' => false,
+                    'registration_open' => true,
+                ]);
+            }
+
+            return $settings->toArray();
+        });
+
+        return response()->json([
+            'data' => $settings,
         ], 200);
     }
 

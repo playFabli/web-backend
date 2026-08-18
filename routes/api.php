@@ -147,6 +147,9 @@ Route::group(['prefix' => 'admin', 'middleware' => [RouteGuardOnlyAssetCreator::
 Route::get('/user/newest', [App\Http\Controllers\User\GeneralController::class, 'newestUsers']);
 Route::get('/users', [App\Http\Controllers\User\GeneralController::class, 'browseUsers']);
 
+// Public site settings (announcement bar message, marketplace banner, ...)
+Route::get('/site-settings', [App\Http\Controllers\User\GeneralController::class, 'siteSettings']);
+
 Route::group(['middleware' => [RouteGuardOnlyAuthenticated::class]], function () {
     Route::group(['prefix' => 'user'], function () {
         Route::get('/me', [App\Http\Controllers\User\GeneralController::class, 'me']);
