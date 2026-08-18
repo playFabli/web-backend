@@ -1168,8 +1168,8 @@ class GeneralController extends Controller
             ], 422);
         }
 
-        // Enforce one-item-per-category limit for "Face" and "Avatar Poses"
-        $restrictedCategories = ['Face', 'Avatar Poses'];
+        // Enforce one-item-per-category limit for "Face", "Avatar Poses", and "Gears"
+        $restrictedCategories = ['Face', 'Avatar Poses', 'Gears'];
         if (in_array($inventory->item->category->title, $restrictedCategories)) {
             $alreadyWearingCategory = UserWearing::select(['user_wearing.id'])
                 ->join('marketplace_items', 'user_wearing.item_id', '=', 'marketplace_items.id')
